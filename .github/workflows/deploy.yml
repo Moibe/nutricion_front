@@ -1,0 +1,28 @@
+name: deploy nutricion_front 🥗
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+jobs:
+    deploy:
+        name: pull · build · restart
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: install ssh key
+              run: |
+                  install -m 600 -D /dev/null ~/.ssh/id_rsa
+                  echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+                  ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+
+            # Node/npm/pm2 viven en nvm; una shell SSH no-interactiva no los carga
+            # sola, así que se exporta nvm explícitamente antes de usarlos.
+            - name: deploy on droplet
+              run: |
+                  ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use node >/dev/null && { [ -d ~/code/nutricion_front ] || git clone git@github.com:Moibe/nutricion_front.git ~/code/nutricion_front; } && cd ~/code/nutricion_front && git checkout main && git pull origin main && npm ci && npm run build && (pm2 restart nutricion-front --update-env || pm2 start build/index.js --name nutricion-front --update-env)'
+
+            - name: cleanup
+              run: rm -rf ~/.ssh
