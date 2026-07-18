@@ -24,6 +24,7 @@
 </script>
 
 <svelte:head>
+  <title>Kcal</title>
   <link rel="icon" href={favicon} />
 </svelte:head>
 

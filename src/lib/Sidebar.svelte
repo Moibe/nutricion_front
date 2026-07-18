@@ -58,20 +58,12 @@
   >
     <nav>
       <a
-        href="/seccion-uno"
+        href="/nutricion"
         class="nav-item"
-        aria-current={isActive('/seccion-uno') ? 'page' : undefined}
+        aria-current={isActive('/nutricion') ? 'page' : undefined}
       >
         <span class="nav-ico" aria-hidden="true"></span>
-        <span>Sección uno</span>
-      </a>
-      <a href="/" class="nav-item" aria-current={isActive('/') ? 'page' : undefined}>
-        <span class="nav-ico" aria-hidden="true"></span>
-        <span>Sección dos</span>
-      </a>
-      <a href="/" class="nav-item" aria-current={isActive('/') ? 'page' : undefined}>
-        <span class="nav-ico" aria-hidden="true"></span>
-        <span>Sección tres</span>
+        <span>Nutrición</span>
       </a>
     </nav>
 

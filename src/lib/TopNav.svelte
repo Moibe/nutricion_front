@@ -3,10 +3,6 @@
   // Adaptada a fondo CLARO: vidrio esmerilado, texto oscuro, sin glow.
   // El tilt es idéntico al original (estudio-cine): se calcula la posición
   // relativa del cursor (-1..1 en cada eje) y se inclina la barra hacia él.
-  import { page } from '$app/state';
-
-  const isActive = (href: string) => page.url.pathname === href;
-
   let tiltX = $state(0);
   let tiltY = $state(0);
 
@@ -33,22 +29,13 @@
   onmouseleave={handleLeave}
 >
   <a href="/" class="brand" aria-label="Inicio">
-    <span class="brand-mark" aria-hidden="true"></span>
-    <span class="brand-title">App</span>
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 2c-1.6 2.8-4.2 4.6-4.2 8.2a4.2 4.2 0 0 0 8.4 0c0-1.1-.3-2-.8-2.9.8.6 1.5 1.5 1.9 2.6.6 1.7.2 3.6-.9 5A5.8 5.8 0 0 1 12 22a5.8 5.8 0 0 1-5.3-8.2C7.6 11.3 9 9.5 9 7.1 9 5 10.1 3.2 12 2Z"
+      />
+    </svg>
+    <span class="brand-title">Kcal</span>
   </a>
-
-  <nav>
-    <a href="/" class="nav-item" aria-current={isActive('/') ? 'page' : undefined}>Inicio</a>
-    <a
-      href="/seccion-uno"
-      class="nav-item"
-      aria-current={isActive('/seccion-uno') ? 'page' : undefined}
-    >
-      Sección uno
-    </a>
-  </nav>
-
-  <div class="spacer"></div>
 </header>
 
 <style>
@@ -95,52 +82,12 @@
   .brand-mark {
     width: 22px;
     height: 22px;
-    border-radius: 6px;
-    background: linear-gradient(135deg, #2563eb, #1e3a8a);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    fill: #2563eb;
   }
 
   .brand-title {
     font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: 0.005em;
-  }
-
-  nav {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-left: 1.25rem;
-    padding-left: 1.25rem;
-    border-left: 1px solid rgba(15, 23, 42, 0.12);
-    height: 60%;
-  }
-
-  .nav-item {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.45rem 0.95rem;
-    color: rgba(15, 23, 42, 0.82);
-    text-decoration: none;
-    font-size: 0.95rem;
-    letter-spacing: 0.01em;
-    border-radius: 8px;
-    border: 1px solid transparent;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-  }
-
-  .nav-item:hover {
-    background: rgba(255, 255, 255, 0.6);
-    border-color: rgba(15, 23, 42, 0.1);
-  }
-
-  .nav-item[aria-current='page'] {
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.16);
-    border-color: rgba(37, 99, 235, 0.4);
-  }
-
-  .spacer {
-    flex: 1;
   }
 </style>
