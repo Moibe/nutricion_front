@@ -1,5 +1,6 @@
 <script lang="ts">
   import { env } from '$env/dynamic/public';
+  import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -18,7 +19,8 @@
   type Comida = { id: number; tipo: string; fecha: string; created_at: string; label: string };
 
   let comidas = $state<Comida[]>([]);
-  let activeId = $state<number | null>(null);
+  // Solo una tarjeta expandida a la vez — al abrir una se cierra la anterior.
+  let expandedId = $state<number | null>(null);
   let creando = $state<string | null>(null);
   let error = $state<string | null>(null);
 
@@ -36,7 +38,8 @@
       const data = await res.json();
       const nueva: Comida = { ...data, label };
       comidas = [...comidas, nueva];
-      activeId = nueva.id;
+      // La recién creada queda abierta de una vez, lista para agregar un consumo.
+      expandedId = nueva.id;
     } catch (e) {
       error =
         e instanceof TypeError
@@ -73,6 +76,17 @@
       year: 'numeric'
     });
   }
+
+  function toggleExpand(id: number) {
+    expandedId = expandedId === id ? null : id;
+  }
+
+  function onCardKeydown(e: KeyboardEvent, id: number) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleExpand(id);
+    }
+  }
 </script>
 
 <section class="comidas">
@@ -96,43 +110,62 @@
   {#if comidas.length > 0}
     <div class="cards">
       {#each comidas as c (c.id)}
-        <div class="card" class:active={c.id === activeId}>
-          <span class="card-label">{c.label}</span>
-          <div class="fecha-picker">
-            <button
-              type="button"
-              class="fecha-btn"
-              aria-label="Elegir fecha de {c.label}"
-              onclick={(e) => {
-                const input = (e.currentTarget as HTMLElement).parentElement?.querySelector(
-                  'input[type="date"]'
-                ) as HTMLInputElement | null;
-                input?.showPicker?.();
-              }}
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
+        <div
+          class="card"
+          class:active={c.id === expandedId}
+          onclick={() => toggleExpand(c.id)}
+          onkeydown={(e) => onCardKeydown(e, c.id)}
+          role="button"
+          tabindex="0"
+        >
+          <div class="card-header">
+            <span class="card-label">{c.label}</span>
+            <div class="fecha-picker" onclick={(e) => e.stopPropagation()} role="presentation">
+              <button
+                type="button"
+                class="fecha-btn"
+                aria-label="Elegir fecha de {c.label}"
+                onclick={(e) => {
+                  const input = (e.currentTarget as HTMLElement).parentElement?.querySelector(
+                    'input[type="date"]'
+                  ) as HTMLInputElement | null;
+                  input?.showPicker?.();
+                }}
               >
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
-              <span class="fecha-texto">{formatoFecha(c.fecha)}</span>
-            </button>
-            <input
-              type="date"
-              class="fecha-input"
-              value={c.fecha}
-              onchange={(e) => cambiarFecha(c.id, (e.currentTarget as HTMLInputElement).value)}
-            />
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                <span class="fecha-texto">{formatoFecha(c.fecha)}</span>
+              </button>
+              <input
+                type="date"
+                class="fecha-input"
+                value={c.fecha}
+                onchange={(e) => cambiarFecha(c.id, (e.currentTarget as HTMLInputElement).value)}
+              />
+            </div>
           </div>
+
+          <div class="toggle-hint">
+            {c.id === expandedId ? '− Cerrar' : '+ Agregar consumo'}
+          </div>
+
+          {#if c.id === expandedId}
+            <div class="consumo-panel" onclick={(e) => e.stopPropagation()} role="presentation">
+              <ChatKilocalculator comidaId={c.id} mostrarTitulo={false} />
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -182,19 +215,22 @@
 
   .cards {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
   }
 
   .card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-width: 150px;
-    padding: 0.8rem 0.95rem;
-    border-radius: 10px;
+    width: 100%;
+    max-width: 600px;
+    padding: 1.4rem 1.6rem;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.55);
     border: 1px solid rgba(15, 23, 42, 0.1);
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease;
   }
 
   .card.active {
@@ -202,9 +238,15 @@
     border-color: rgba(37, 99, 235, 0.4);
   }
 
+  .card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
   .card-label {
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 1.2rem;
     color: rgba(15, 23, 42, 0.95);
   }
 
@@ -217,7 +259,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.35rem 0.6rem;
+    padding: 0.4rem 0.7rem;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.55);
     border: 1px solid rgba(15, 23, 42, 0.12);
@@ -231,7 +273,7 @@
   }
 
   .fecha-texto {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
   }
 
   .fecha-input {
@@ -242,6 +284,20 @@
     bottom: 0;
     opacity: 0;
     pointer-events: none;
+  }
+
+  .toggle-hint {
+    margin-top: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2563eb;
+  }
+
+  .consumo-panel {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(15, 23, 42, 0.12);
+    cursor: default;
   }
 
   .error {
