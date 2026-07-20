@@ -7,7 +7,10 @@
   // "Colación 1"/"Colación 2" son dos botones distintos en la UI, pero el
   // schema del back solo distingue 4 tipos (no hay colacion_1/colacion_2) —
   // ambos crean una comida tipo "colacion"; el label completo se guarda solo
-  // del lado del cliente para diferenciarlas en pantalla.
+  // del lado del cliente para diferenciarlas en pantalla. El índice en este
+  // array SÍ se manda al back como `orden`, para poder ordenar el listado
+  // en la secuencia real del día (Colación 1 antes de Comida, Colación 2
+  // después) aunque ambas compartan tipo.
   const TIPOS = [
     { label: 'Desayuno', tipo: 'desayuno' },
     { label: 'Colación 1', tipo: 'colacion' },
@@ -40,7 +43,7 @@
   let creando = $state<string | null>(null);
   let error = $state<string | null>(null);
 
-  async function crearComida(label: string, tipo: string) {
+  async function crearComida(label: string, tipo: string, orden: number) {
     if (creando) return;
     creando = label;
     error = null;
@@ -48,7 +51,7 @@
       const res = await fetch(`${API_URL}/comidas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo })
+        body: JSON.stringify({ tipo, orden })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -100,11 +103,11 @@
 
 <section class="comidas">
   <div class="botones">
-    {#each TIPOS as t (t.label)}
+    {#each TIPOS as t, i (t.label)}
       <button
         type="button"
         class="tipo-btn"
-        onclick={() => crearComida(t.label, t.tipo)}
+        onclick={() => crearComida(t.label, t.tipo, i)}
         disabled={creando !== null}
       >
         {creando === t.label ? '…' : t.label}
