@@ -58,6 +58,14 @@
   >
     <nav>
       <a
+        href="/comidas"
+        class="nav-item"
+        aria-current={isActive('/comidas') ? 'page' : undefined}
+      >
+        <span class="nav-ico" aria-hidden="true"></span>
+        <span>Comidas</span>
+      </a>
+      <a
         href="/nutricion"
         class="nav-item"
         aria-current={isActive('/nutricion') ? 'page' : undefined}
