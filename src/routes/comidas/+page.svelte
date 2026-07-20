@@ -98,28 +98,41 @@
       {#each comidas as c (c.id)}
         <div class="card" class:active={c.id === activeId}>
           <span class="card-label">{c.label}</span>
-          <label class="fecha-picker">
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+          <div class="fecha-picker">
+            <button
+              type="button"
+              class="fecha-btn"
+              aria-label="Elegir fecha de {c.label}"
+              onclick={(e) => {
+                const input = (e.currentTarget as HTMLElement).parentElement?.querySelector(
+                  'input[type="date"]'
+                ) as HTMLInputElement | null;
+                input?.showPicker?.();
+              }}
             >
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
-            <span class="fecha-texto">{formatoFecha(c.fecha)}</span>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              <span class="fecha-texto">{formatoFecha(c.fecha)}</span>
+            </button>
             <input
               type="date"
+              class="fecha-input"
               value={c.fecha}
               onchange={(e) => cambiarFecha(c.id, (e.currentTarget as HTMLInputElement).value)}
             />
-          </label>
+          </div>
         </div>
       {/each}
     </div>
@@ -197,6 +210,10 @@
 
   .fecha-picker {
     position: relative;
+    width: fit-content;
+  }
+
+  .fecha-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -206,10 +223,10 @@
     border: 1px solid rgba(15, 23, 42, 0.12);
     color: rgba(15, 23, 42, 0.75);
     cursor: pointer;
-    width: fit-content;
+    font: inherit;
   }
 
-  .fecha-picker:hover {
+  .fecha-btn:hover {
     background: rgba(255, 255, 255, 0.85);
   }
 
@@ -217,11 +234,14 @@
     font-size: 0.82rem;
   }
 
-  .fecha-picker input[type='date'] {
+  .fecha-input {
     position: absolute;
-    inset: 0;
+    width: 1px;
+    height: 1px;
+    left: 0;
+    bottom: 0;
     opacity: 0;
-    cursor: pointer;
+    pointer-events: none;
   }
 
   .error {
