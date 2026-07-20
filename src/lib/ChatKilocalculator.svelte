@@ -1,8 +1,8 @@
 <script lang="ts">
-  // Chat del Kilocalculator (POST /chat de nutricion_api), reusable en dos
-  // contextos: standalone en /nutricion (comidaId=null, consumo suelto) y
-  // embebido dentro de una tarjeta de /comidas (comidaId=id de la comida,
-  // así el consumo que se guarde queda asociado a esa comida).
+  // Chat del Kilocalculator (POST /chat de nutricion_api). Se usa embebido
+  // dentro de una tarjeta de /comidas (comidaId=id de la comida, así el
+  // consumo que se guarde queda asociado a esa comida). Los props comidaId
+  // (nullable) y mostrarTitulo se conservan por si se quiere reusar suelto.
   // - Conversación CON ESTADO: guardamos el conversation_id que devuelve el
   //   primer turno y lo reenviamos en cada mensaje siguiente (no reenviamos
   //   historial). Omitirlo = empezar de cero (botón "Reiniciar").

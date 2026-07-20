@@ -62,10 +62,6 @@
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Comidas</span>
   </a>
-  <a href="/nutricion" class="nav-item" aria-current={isActive('/nutricion') ? 'page' : undefined}>
-    <span class="nav-ico" aria-hidden="true"></span>
-    <span>Nutrición</span>
-  </a>
 {/snippet}
 
 <!-- Sidebar fijo de escritorio (oculto por completo en mobile). -->
