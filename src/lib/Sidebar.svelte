@@ -3,14 +3,23 @@
   // fondo CLARO. Incluye el handle para replegar/mostrar (característica del
   // original). Publica su ancho real a la variable CSS --sidebar-width para que
   // el panel de contenido se ajuste solo.
+  //
+  // En mobile el sidebar fijo (min-width 240px) no cabe bien, así que se
+  // oculta por completo (ver media query) y se reemplaza por un drawer
+  // controlado por el hamburguesa del TopNav (mobileOpen/closeMobile) — es
+  // independiente del collapsed de escritorio.
   import { page } from '$app/state';
 
   let {
     collapsed = false,
-    toggleCollapsed
+    toggleCollapsed,
+    mobileOpen = false,
+    closeMobile
   }: {
     collapsed?: boolean;
     toggleCollapsed: () => void;
+    mobileOpen?: boolean;
+    closeMobile?: () => void;
   } = $props();
 
   // Marca el item activo según la ruta. Los placeholders a "/" nunca se marcan.
@@ -48,31 +57,28 @@
   }
 </script>
 
+{#snippet navLinks()}
+  <a href="/comidas" class="nav-item" aria-current={isActive('/comidas') ? 'page' : undefined}>
+    <span class="nav-ico" aria-hidden="true"></span>
+    <span>Comidas</span>
+  </a>
+  <a href="/nutricion" class="nav-item" aria-current={isActive('/nutricion') ? 'page' : undefined}>
+    <span class="nav-ico" aria-hidden="true"></span>
+    <span>Nutrición</span>
+  </a>
+{/snippet}
+
+<!-- Sidebar fijo de escritorio (oculto por completo en mobile). -->
 {#if !collapsed}
   <aside
-    class="sidebar"
+    class="sidebar desktop-sidebar"
     style="transform: perspective(900px) rotateX({tiltX}deg) rotateY({tiltY}deg);"
     bind:clientWidth={sidebarWidth}
     onmousemove={handleMove}
     onmouseleave={handleLeave}
   >
     <nav>
-      <a
-        href="/comidas"
-        class="nav-item"
-        aria-current={isActive('/comidas') ? 'page' : undefined}
-      >
-        <span class="nav-ico" aria-hidden="true"></span>
-        <span>Comidas</span>
-      </a>
-      <a
-        href="/nutricion"
-        class="nav-item"
-        aria-current={isActive('/nutricion') ? 'page' : undefined}
-      >
-        <span class="nav-ico" aria-hidden="true"></span>
-        <span>Nutrición</span>
-      </a>
+      {@render navLinks()}
     </nav>
 
     <div class="sidebar-footer">
@@ -118,6 +124,16 @@
     </svg>
   </button>
 {/if}
+
+<!-- Drawer de mobile: solo visible en pantallas chicas, controlado por el hamburguesa del TopNav. -->
+{#if mobileOpen}
+  <div class="mobile-backdrop" onclick={closeMobile} role="presentation"></div>
+{/if}
+<aside class="sidebar mobile-drawer" class:open={mobileOpen}>
+  <nav>
+    {@render navLinks()}
+  </nav>
+</aside>
 
 <style>
   .sidebar {
@@ -245,5 +261,46 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.6),
       0 4px 16px rgba(15, 23, 42, 0.12);
     z-index: 10;
+  }
+
+  /* Drawer de mobile: fuera de pantalla por default, entra como overlay
+     sobre un backdrop cuando mobileOpen — no empuja el contenido. */
+  .mobile-drawer {
+    display: none;
+  }
+
+  .mobile-backdrop {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .desktop-sidebar,
+    .reveal-handle {
+      display: none;
+    }
+
+    .mobile-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      z-index: 15;
+    }
+
+    .mobile-drawer {
+      display: flex;
+      top: calc(1rem + var(--topnav-height, 64px));
+      bottom: 0.75rem;
+      left: 0.75rem;
+      width: min(78vw, 280px);
+      min-width: 0;
+      max-width: none;
+      z-index: 16;
+      transform: translateX(-120%);
+    }
+
+    .mobile-drawer.open {
+      transform: translateX(0);
+    }
   }
 </style>
