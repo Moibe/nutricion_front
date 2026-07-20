@@ -38,8 +38,6 @@
       const data = await res.json();
       const nueva: Comida = { ...data, label };
       comidas = [...comidas, nueva];
-      // La recién creada queda abierta de una vez, lista para agregar un consumo.
-      expandedId = nueva.id;
     } catch (e) {
       error =
         e instanceof TypeError
