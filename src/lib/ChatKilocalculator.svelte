@@ -12,12 +12,22 @@
   //   (totales.kcal / proteinas_g / ...), igual lo leemos.
   import { env } from '$env/dynamic/public';
 
-  let { comidaId = null, mostrarTitulo = true }: { comidaId?: number | null; mostrarTitulo?: boolean } =
-    $props();
+  type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
+  type ResultadoGuardado = { platillo: string | null } & Macros;
+
+  let {
+    comidaId = null,
+    mostrarTitulo = true,
+    onGuardado
+  }: {
+    comidaId?: number | null;
+    mostrarTitulo?: boolean;
+    // Se llama tras un guardado exitoso — el padre lo usa (p.ej. en
+    // /comidas) para cerrar el panel y mostrar el resultado en la tarjeta.
+    onGuardado?: (resultado: ResultadoGuardado) => void;
+  } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
-
-  type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
 
   type Respuesta = {
     requiere_mas_informacion: boolean;
@@ -139,6 +149,7 @@
         throw new Error(detail);
       }
       savedIdx = new Set(savedIdx).add(i);
+      if (m) onGuardado?.({ platillo: r.platillo, ...m });
     } catch (e) {
       saveError =
         e instanceof TypeError

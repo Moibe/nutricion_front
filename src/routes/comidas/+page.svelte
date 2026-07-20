@@ -16,7 +16,23 @@
     { label: 'Cena', tipo: 'cena' }
   ] as const;
 
-  type Comida = { id: number; tipo: string; fecha: string; created_at: string; label: string };
+  type ResultadoGuardado = {
+    platillo: string | null;
+    kilocalorias: number;
+    proteinas: number;
+    carbohidratos: number;
+    grasas: number;
+  };
+  type Comida = {
+    id: number;
+    tipo: string;
+    fecha: string;
+    created_at: string;
+    label: string;
+    resultados: ResultadoGuardado[];
+  };
+
+  const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
   let comidas = $state<Comida[]>([]);
   // Solo una tarjeta expandida a la vez — al abrir una se cierra la anterior.
@@ -36,7 +52,7 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const nueva: Comida = { ...data, label };
+      const nueva: Comida = { ...data, label, resultados: [] };
       comidas = [...comidas, nueva];
     } catch (e) {
       error =
@@ -77,6 +93,15 @@
 
   function toggleExpand(id: number) {
     expandedId = expandedId === id ? null : id;
+  }
+
+  // Al guardar un consumo desde el chat embebido: se agrega al resumen de la
+  // tarjeta y se cierra el diálogo, dejando solo el cuadro de resultado.
+  function onConsumoGuardado(comidaId: number, resultado: ResultadoGuardado) {
+    comidas = comidas.map((c) =>
+      c.id === comidaId ? { ...c, resultados: [...c.resultados, resultado] } : c
+    );
+    expandedId = null;
   }
 
   function onCardKeydown(e: KeyboardEvent, id: number) {
@@ -160,6 +185,22 @@
             </div>
           </div>
 
+          {#if c.resultados.length > 0}
+            <div class="resultados">
+              {#each c.resultados as r, i (i)}
+                <div class="resultado-item">
+                  {#if r.platillo}<span class="resultado-platillo">{r.platillo}</span>{/if}
+                  <div class="resultado-macros">
+                    <span class="macro-mini kcal">{fmt(r.kilocalorias)} kcal</span>
+                    <span class="macro-mini">{fmt(r.proteinas)} g prot</span>
+                    <span class="macro-mini">{fmt(r.carbohidratos)} g carb</span>
+                    <span class="macro-mini">{fmt(r.grasas)} g grasa</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
           <div class="toggle-hint">
             {c.id === expandedId ? '− Cerrar' : '+ Agregar consumo'}
           </div>
@@ -171,7 +212,11 @@
               onkeydown={(e) => e.stopPropagation()}
               role="presentation"
             >
-              <ChatKilocalculator comidaId={c.id} mostrarTitulo={false} />
+              <ChatKilocalculator
+                comidaId={c.id}
+                mostrarTitulo={false}
+                onGuardado={(r) => onConsumoGuardado(c.id, r)}
+              />
             </div>
           {/if}
         </div>
@@ -292,6 +337,51 @@
     bottom: 0;
     opacity: 0;
     pointer-events: none;
+  }
+
+  .resultados {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+    cursor: default;
+  }
+
+  .resultado-item {
+    padding: 0.6rem 0.8rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+  }
+
+  .resultado-platillo {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.9);
+    margin-bottom: 0.35rem;
+  }
+
+  .resultado-macros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .macro-mini {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.65);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+  }
+
+  .macro-mini.kcal {
+    color: #1e3a8a;
+    background: rgba(37, 99, 235, 0.14);
+    border-color: rgba(37, 99, 235, 0.35);
   }
 
   .toggle-hint {
