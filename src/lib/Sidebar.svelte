@@ -60,7 +60,7 @@
 {#snippet navLinks()}
   <a href="/comidas" class="nav-item" aria-current={isActive('/comidas') ? 'page' : undefined}>
     <span class="nav-ico" aria-hidden="true"></span>
-    <span>Comidas</span>
+    <span>Nutrición</span>
   </a>
 {/snippet}
 
