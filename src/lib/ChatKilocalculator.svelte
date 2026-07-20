@@ -1,8 +1,9 @@
 <script lang="ts">
   // Chat del Kilocalculator (POST /chat de nutricion_api). Se usa embebido
-  // dentro de una tarjeta de /comidas (comidaId=id de la comida, así el
-  // consumo que se guarde queda asociado a esa comida). Los props comidaId
-  // (nullable) y mostrarTitulo se conservan por si se quiere reusar suelto.
+  // dentro de una tarjeta de la página /nutricion (comidaId=id de la comida,
+  // así el consumo que se guarde queda asociado a esa comida). Los props
+  // comidaId (nullable) y mostrarTitulo se conservan por si se quiere reusar
+  // suelto.
   // - Conversación CON ESTADO: guardamos el conversation_id que devuelve el
   //   primer turno y lo reenviamos en cada mensaje siguiente (no reenviamos
   //   historial). Omitirlo = empezar de cero (botón "Reiniciar").
@@ -23,7 +24,7 @@
     comidaId?: number | null;
     mostrarTitulo?: boolean;
     // Se llama tras un guardado exitoso — el padre lo usa (p.ej. en
-    // /comidas) para cerrar el panel y mostrar el resultado en la tarjeta.
+    // /nutricion) para cerrar el panel y mostrar el resultado en la tarjeta.
     onGuardado?: (resultado: ResultadoGuardado) => void;
   } = $props();
 
