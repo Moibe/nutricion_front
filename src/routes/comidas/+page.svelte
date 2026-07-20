@@ -82,15 +82,6 @@
     }
   }
 
-  function formatoFecha(fecha: string) {
-    const [y, m, d] = fecha.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  }
-
   function toggleExpand(id: number) {
     expandedId = expandedId === id ? null : id;
   }
@@ -132,36 +123,25 @@
           <div class="card-header">
             <span class="card-label">{c.label}</span>
             <div class="fecha-picker">
-              <button
-                type="button"
-                class="fecha-btn"
-                aria-label="Elegir fecha de {c.label}"
-                onclick={(e) => {
-                  const input = (e.currentTarget as HTMLElement).parentElement?.querySelector(
-                    'input[type="date"]'
-                  ) as HTMLInputElement | null;
-                  input?.showPicker?.();
-                }}
+              <svg
+                class="fecha-icon"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
               >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M16 2v4M8 2v4M3 10h18" />
-                </svg>
-                <span class="fecha-texto">{formatoFecha(c.fecha)}</span>
-              </button>
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
               <input
                 type="date"
                 class="fecha-input"
+                aria-label="Elegir fecha de {c.label}"
                 value={c.fecha}
                 onchange={(e) => cambiarFecha(c.id, (e.currentTarget as HTMLInputElement).value)}
               />
@@ -280,40 +260,38 @@
     color: rgba(15, 23, 42, 0.95);
   }
 
+  /* Input NATIVO y visible (no overlay invisible, no showPicker()): es lo
+     único que abre el calendario de forma confiable en cualquier navegador
+     de escritorio o mobile — cualquier truco por-encima resultó poco
+     confiable en algunos navegadores móviles. */
   .fecha-picker {
-    position: relative;
-    width: fit-content;
-  }
-
-  .fecha-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.4rem 0.7rem;
+    padding: 0.35rem 0.6rem;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.55);
     border: 1px solid rgba(15, 23, 42, 0.12);
     color: rgba(15, 23, 42, 0.75);
-    cursor: pointer;
-    font: inherit;
+    width: fit-content;
   }
 
-  .fecha-btn:hover {
+  .fecha-picker:hover {
     background: rgba(255, 255, 255, 0.85);
   }
 
-  .fecha-texto {
-    font-size: 0.85rem;
+  .fecha-icon {
+    flex-shrink: 0;
   }
 
   .fecha-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    left: 0;
-    bottom: 0;
-    opacity: 0;
-    pointer-events: none;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0;
+    cursor: pointer;
   }
 
   .resultados {
