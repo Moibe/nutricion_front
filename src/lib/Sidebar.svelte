@@ -297,6 +297,10 @@
       max-width: none;
       z-index: 16;
       transform: translateX(-120%);
+      /* Más opaco que el sidebar de escritorio: aquí sí hay contenido con
+         texto detrás (p.ej. los botones de /comidas) y con solo 0.35 de
+         alfa se alcanzaba a leer encimado con los links del drawer. */
+      background: rgba(226, 240, 255, 0.97);
     }
 
     .mobile-drawer.open {
