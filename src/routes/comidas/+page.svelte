@@ -104,12 +104,7 @@
     expandedId = null;
   }
 
-  function onCardKeydown(e: KeyboardEvent, id: number) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggleExpand(id);
-    }
-  }
+
 </script>
 
 <section class="comidas">
@@ -133,22 +128,10 @@
   {#if comidas.length > 0}
     <div class="cards">
       {#each comidas as c (c.id)}
-        <div
-          class="card"
-          class:active={c.id === expandedId}
-          onclick={() => toggleExpand(c.id)}
-          onkeydown={(e) => onCardKeydown(e, c.id)}
-          role="button"
-          tabindex="0"
-        >
+        <div class="card" class:active={c.id === expandedId}>
           <div class="card-header">
             <span class="card-label">{c.label}</span>
-            <div
-              class="fecha-picker"
-              onclick={(e) => e.stopPropagation()}
-              onkeydown={(e) => e.stopPropagation()}
-              role="presentation"
-            >
+            <div class="fecha-picker">
               <button
                 type="button"
                 class="fecha-btn"
@@ -201,17 +184,12 @@
             </div>
           {/if}
 
-          <div class="toggle-hint">
+          <button type="button" class="toggle-hint" onclick={() => toggleExpand(c.id)}>
             {c.id === expandedId ? '− Cerrar' : '+ Agregar consumo'}
-          </div>
+          </button>
 
           {#if c.id === expandedId}
-            <div
-              class="consumo-panel"
-              onclick={(e) => e.stopPropagation()}
-              onkeydown={(e) => e.stopPropagation()}
-              role="presentation"
-            >
+            <div class="consumo-panel">
               <ChatKilocalculator
                 comidaId={c.id}
                 mostrarTitulo={false}
@@ -280,7 +258,6 @@
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.55);
     border: 1px solid rgba(15, 23, 42, 0.1);
-    cursor: pointer;
     transition:
       background 0.18s ease,
       border-color 0.18s ease;
@@ -385,10 +362,20 @@
   }
 
   .toggle-hint {
+    display: block;
     margin-top: 0.9rem;
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
     font-size: 0.85rem;
     font-weight: 600;
     color: #2563eb;
+    cursor: pointer;
+  }
+
+  .toggle-hint:hover {
+    text-decoration: underline;
   }
 
   .consumo-panel {
