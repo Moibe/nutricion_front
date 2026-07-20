@@ -118,7 +118,12 @@
         >
           <div class="card-header">
             <span class="card-label">{c.label}</span>
-            <div class="fecha-picker" onclick={(e) => e.stopPropagation()} role="presentation">
+            <div
+              class="fecha-picker"
+              onclick={(e) => e.stopPropagation()}
+              onkeydown={(e) => e.stopPropagation()}
+              role="presentation"
+            >
               <button
                 type="button"
                 class="fecha-btn"
@@ -160,7 +165,12 @@
           </div>
 
           {#if c.id === expandedId}
-            <div class="consumo-panel" onclick={(e) => e.stopPropagation()} role="presentation">
+            <div
+              class="consumo-panel"
+              onclick={(e) => e.stopPropagation()}
+              onkeydown={(e) => e.stopPropagation()}
+              role="presentation"
+            >
               <ChatKilocalculator comidaId={c.id} mostrarTitulo={false} />
             </div>
           {/if}
