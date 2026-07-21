@@ -52,6 +52,10 @@
   // abre en modo "agregar nuevo"; si no, reabre esa conversación puntual.
   let expandedId = $state<number | null>(null);
   let editandoConsumo = $state<Consumo | null>(null);
+  // Eliminar consumo: confirmación inline (id del consumo pendiente) para no
+  // borrar por accidente; el id "en vuelo" mientras corre el DELETE.
+  let confirmandoEliminar = $state<number | null>(null);
+  let eliminandoId = $state<number | null>(null);
 
   const comidasVisibles = $derived(
     soloHoy ? comidas.filter((c) => c.fecha === hoyISO) : comidas
@@ -125,12 +129,43 @@
   }
 
   function editarViaIA(comidaId: number, x: Consumo) {
+    // Empezar a editar cancela una confirmación de borrado pendiente.
+    confirmandoEliminar = null;
     if (expandedId === comidaId && editandoConsumo?.id === x.id) {
       expandedId = null;
       editandoConsumo = null;
     } else {
       expandedId = comidaId;
       editandoConsumo = x;
+    }
+  }
+
+  // Elimina un consumo (DELETE /consumos/{id}). Si era el último de su comida,
+  // la comida queda vacía y desaparece del listado (igual que en el back).
+  async function eliminarConsumo(comidaId: number, consumoId: number) {
+    if (eliminandoId !== null) return;
+    eliminandoId = consumoId;
+    errorFecha = null;
+    try {
+      const res = await fetch(`${API_URL}/consumos/${consumoId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      comidas = comidas
+        .map((c) =>
+          c.id === comidaId
+            ? { ...c, consumos: c.consumos.filter((x) => x.id !== consumoId) }
+            : c
+        )
+        .filter((c) => c.consumos.length > 0);
+      // Si el consumo borrado estaba abierto en edición, cerrar ese panel.
+      if (editandoConsumo?.id === consumoId) {
+        editandoConsumo = null;
+        expandedId = null;
+      }
+      confirmandoEliminar = null;
+    } catch {
+      errorFecha = 'No se pudo eliminar el consumo.';
+    } finally {
+      eliminandoId = null;
     }
   }
 
@@ -249,26 +284,48 @@
               <div class="consumo">
                 <div class="consumo-head">
                   {#if x.platillo}<span class="consumo-platillo">{x.platillo}</span>{/if}
-                  <button
-                    type="button"
-                    class="edit-btn"
-                    onclick={() => editarViaIA(c.id, x)}
-                    aria-label="Editar consumo con el asistente"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
+                  <div class="consumo-acciones">
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      onclick={() => editarViaIA(c.id, x)}
+                      aria-label="Editar consumo con el asistente"
                     >
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                    </svg>
-                  </button>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      onclick={() => (confirmandoEliminar = x.id)}
+                      aria-label="Eliminar consumo"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+                        <path d="M10 11v6M14 11v6" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div class="consumo-macros">
                   <span class="macro-mini kcal">{fmt(x.kilocalorias ?? 0)} kcal</span>
@@ -276,6 +333,30 @@
                   <span class="macro-mini">{fmt(x.carbohidratos ?? 0)} g carb</span>
                   <span class="macro-mini">{fmt(x.grasas ?? 0)} g grasa</span>
                 </div>
+
+                {#if confirmandoEliminar === x.id}
+                  <div class="confirmar-eliminar">
+                    <span>¿Eliminar este consumo?</span>
+                    <div class="confirmar-acciones">
+                      <button
+                        type="button"
+                        class="cancelar-btn"
+                        onclick={() => (confirmandoEliminar = null)}
+                        disabled={eliminandoId !== null}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        class="eliminar-btn"
+                        onclick={() => eliminarConsumo(c.id, x.id)}
+                        disabled={eliminandoId !== null}
+                      >
+                        {eliminandoId === x.id ? 'Eliminando…' : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                {/if}
 
                 {#if editandoConsumo?.id === x.id && expandedId === c.id}
                   <div class="consumo-panel">
@@ -451,8 +532,13 @@
     color: rgba(15, 23, 42, 0.9);
   }
 
-  .edit-btn {
+  .consumo-acciones {
     flex-shrink: 0;
+    display: inline-flex;
+    gap: 0.25rem;
+  }
+
+  .icon-btn {
     background: none;
     border: none;
     padding: 0.15rem;
@@ -461,8 +547,64 @@
     display: inline-flex;
   }
 
-  .edit-btn:hover {
+  .icon-btn:hover {
     color: #1e3a8a;
+  }
+
+  .confirmar-eliminar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    font-size: 0.85rem;
+    color: rgba(15, 23, 42, 0.8);
+  }
+
+  .confirmar-acciones {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .cancelar-btn,
+  .eliminar-btn {
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .cancelar-btn {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  .cancelar-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .eliminar-btn {
+    background: rgba(220, 38, 38, 0.9);
+    border: 1px solid rgba(220, 38, 38, 0.9);
+    color: #fff;
+  }
+
+  .eliminar-btn:hover:not(:disabled) {
+    background: #b91c1c;
+  }
+
+  .cancelar-btn:disabled,
+  .eliminar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .consumo-macros {
