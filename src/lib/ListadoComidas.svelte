@@ -13,6 +13,7 @@
   // conversation_id, así que ACTUALIZA esa fila en vez de crear una nueva.
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
+  import NutricionComidas from '$lib/NutricionComidas.svelte';
 
   let { soloHoy = false }: { soloHoy?: boolean } = $props();
 
@@ -222,15 +223,16 @@
   {:else if error}
     <div class="error">⚠️ {error}</div>
   {:else if comidasVisibles.length === 0}
-    <p class="estado">
-      {#if soloHoy}
-        Aún no has registrado comidas hoy. Crea una en <a href="/nutricion">Nutrición</a> y agrégale
-        un consumo.
-      {:else}
+    {#if soloHoy}
+      <!-- Sin comidas hoy: mostramos directamente la UI de Nutrición para
+           registrar una de una vez, en vez de solo un mensaje. -->
+      <NutricionComidas />
+    {:else}
+      <p class="estado">
         Aún no hay comidas guardadas. Crea una en <a href="/nutricion">Nutrición</a> y agrégale un
         consumo.
-      {/if}
-    </p>
+      </p>
+    {/if}
   {:else}
     <div class="cards">
       {#each comidasVisibles as c (c.id)}
