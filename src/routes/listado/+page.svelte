@@ -4,6 +4,7 @@
   // ordenadas por fecha (más reciente primero). El total por comida se suma
   // aquí en el cliente.
   import { env } from '$env/dynamic/public';
+  import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -27,6 +28,8 @@
   let comidas = $state<Comida[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
+  // Solo una tarjeta expandida a la vez, igual que en /nutricion.
+  let expandedId = $state<number | null>(null);
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
@@ -42,6 +45,19 @@
 
   function totalKcal(c: Comida) {
     return c.consumos.reduce((acc, x) => acc + (x.kilocalorias ?? 0), 0);
+  }
+
+  function toggleExpand(id: number) {
+    expandedId = expandedId === id ? null : id;
+  }
+
+  // Al guardar un consumo desde el chat embebido: se agrega a la tarjeta y
+  // se cierra el diálogo (mismo patrón que /nutricion).
+  function onConsumoGuardado(comidaId: number, resultado: Consumo) {
+    comidas = comidas.map((c) =>
+      c.id === comidaId ? { ...c, consumos: [...c.consumos, resultado] } : c
+    );
+    expandedId = null;
   }
 
   $effect(() => {
@@ -101,6 +117,20 @@
               </div>
             {/each}
           </div>
+
+          <button type="button" class="toggle-hint" onclick={() => toggleExpand(c.id)}>
+            {c.id === expandedId ? '− Cerrar' : '+ Agregar consumo'}
+          </button>
+
+          {#if c.id === expandedId}
+            <div class="consumo-panel">
+              <ChatKilocalculator
+                comidaId={c.id}
+                mostrarTitulo={false}
+                onGuardado={(r) => onConsumoGuardado(c.id, r)}
+              />
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -219,6 +249,29 @@
     color: #1e3a8a;
     background: rgba(37, 99, 235, 0.14);
     border-color: rgba(37, 99, 235, 0.35);
+  }
+
+  .toggle-hint {
+    display: block;
+    margin-top: 0.9rem;
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2563eb;
+    cursor: pointer;
+  }
+
+  .toggle-hint:hover {
+    text-decoration: underline;
+  }
+
+  .consumo-panel {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(15, 23, 42, 0.12);
   }
 
   .error {
