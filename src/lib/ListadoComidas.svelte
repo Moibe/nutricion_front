@@ -59,6 +59,19 @@
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
+  // Fecha en formato largo legible: "lunes, 20 de julio de 2026". El input date
+  // nativo solo sabe mostrar dd/mm/yyyy, así que se muestra este texto encima y
+  // el input queda transparente pero tappable debajo (ver .fecha-input en CSS).
+  function formatoFecha(fecha: string) {
+    const [y, m, d] = fecha.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
   // Cambia la fecha de una comida (input de calendario). Optimista con
   // rollback si el PATCH falla. En /hoy, cambiar la fecha a otro día saca la
   // tarjeta de la vista (comidasVisibles se recomputa) — comportamiento
@@ -206,11 +219,23 @@
                   <rect x="3" y="4" width="18" height="18" rx="2" />
                   <path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
+                <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
+                <!-- Input REAL transparente que cubre toda la píldora: un tap
+                     directo abre el picker nativo (lo confiable en mobile).
+                     showPicker() es solo refuerzo para desktop; si falla, el
+                     tap igual funciona. -->
                 <input
                   type="date"
                   class="fecha-input"
                   aria-label="Cambiar fecha de esta comida"
                   value={c.fecha}
+                  onclick={(e) => {
+                    try {
+                      (e.currentTarget as HTMLInputElement).showPicker?.();
+                    } catch {
+                      /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
+                    }
+                  }}
                   onchange={(e) =>
                     cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
                 />
@@ -347,6 +372,7 @@
   }
 
   .fecha-picker {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -356,6 +382,7 @@
     border: 1px solid rgba(15, 23, 42, 0.12);
     color: rgba(15, 23, 42, 0.75);
     width: fit-content;
+    cursor: pointer;
   }
 
   .fecha-picker:hover {
@@ -366,13 +393,22 @@
     flex-shrink: 0;
   }
 
-  .fecha-input {
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
+  .fecha-larga {
     font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  /* Input date REAL cubriendo toda la píldora, transparente pero tappable
+     (opacity:0 NO desactiva el hit-testing): un tap abre el picker nativo,
+     que es lo confiable en mobile. El texto largo legible va debajo. */
+  .fecha-input {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    margin: 0;
     padding: 0;
+    border: none;
+    opacity: 0;
     cursor: pointer;
   }
 
