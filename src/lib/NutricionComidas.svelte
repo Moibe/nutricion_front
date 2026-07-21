@@ -48,6 +48,19 @@
   });
   const hoy = hoyRaw.charAt(0).toUpperCase() + hoyRaw.slice(1);
 
+  // Fecha en formato largo legible ("lunes, 20 de julio de 2026"). El input
+  // date nativo solo muestra dd/mm/yyyy, así que este texto va encima y el
+  // input queda transparente pero tappable debajo (ver .fecha-input en CSS).
+  function formatoFecha(fecha: string) {
+    const [y, m, d] = fecha.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
   let comidas = $state<Comida[]>([]);
   // Solo una tarjeta expandida a la vez — al abrir una se cierra la anterior.
   let expandedId = $state<number | null>(null);
@@ -80,8 +93,14 @@
     }
   }
 
-  async function cambiarFecha(id: number, nuevaFecha: string) {
+  async function cambiarFecha(id: number, nuevaFecha: string, inputEl?: HTMLInputElement) {
     const anterior = comidas.find((c) => c.id === id)?.fecha;
+    // Fecha vacía (botón "limpiar" del input nativo): no PATCH y repinta el
+    // input a la fecha real para no dejarlo en blanco desincronizado.
+    if (!nuevaFecha) {
+      if (inputEl && anterior) inputEl.value = anterior;
+      return;
+    }
     comidas = comidas.map((c) => (c.id === id ? { ...c, fecha: nuevaFecha } : c));
     try {
       const res = await fetch(`${API_URL}/comidas/${id}`, {
@@ -90,7 +109,7 @@
         body: JSON.stringify({ fecha: nuevaFecha })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch (e) {
+    } catch {
       comidas = comidas.map((c) => (c.id === id ? { ...c, fecha: anterior ?? c.fecha } : c));
       error = 'No se pudo actualizar la fecha.';
     }
@@ -154,12 +173,24 @@
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
+              <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
+              <!-- Input transparente que cubre toda la píldora: un tap abre el
+                   picker nativo (confiable en mobile); showPicker es refuerzo
+                   para desktop. -->
               <input
                 type="date"
                 class="fecha-input"
                 aria-label="Elegir fecha de {c.label}"
                 value={c.fecha}
-                onchange={(e) => cambiarFecha(c.id, (e.currentTarget as HTMLInputElement).value)}
+                onclick={(e) => {
+                  try {
+                    (e.currentTarget as HTMLInputElement).showPicker?.();
+                  } catch {
+                    /* mobile: el tap ya abrió el picker */
+                  }
+                }}
+                onchange={(e) =>
+                  cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
               />
             </div>
           </div>
@@ -286,11 +317,8 @@
     color: rgba(15, 23, 42, 0.95);
   }
 
-  /* Input NATIVO y visible (no overlay invisible, no showPicker()): es lo
-     único que abre el calendario de forma confiable en cualquier navegador
-     de escritorio o mobile — cualquier truco por-encima resultó poco
-     confiable en algunos navegadores móviles. */
   .fecha-picker {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -300,6 +328,7 @@
     border: 1px solid rgba(15, 23, 42, 0.12);
     color: rgba(15, 23, 42, 0.75);
     width: fit-content;
+    cursor: pointer;
   }
 
   .fecha-picker:hover {
@@ -310,13 +339,22 @@
     flex-shrink: 0;
   }
 
-  .fecha-input {
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
+  .fecha-larga {
     font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  /* Input date REAL cubriendo toda la píldora, transparente pero tappable
+     (opacity:0 NO desactiva el hit-testing): un tap abre el picker nativo, lo
+     confiable en mobile. El texto largo legible va debajo. */
+  .fecha-input {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    margin: 0;
     padding: 0;
+    border: none;
+    opacity: 0;
     cursor: pointer;
   }
 
