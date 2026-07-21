@@ -37,6 +37,17 @@
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
+  // Fecha de hoy en CDMX (misma zona con la que el back sella las comidas),
+  // capitalizada: "Martes, 21 de julio de 2026".
+  const hoyRaw = new Date().toLocaleDateString('es-MX', {
+    timeZone: 'America/Mexico_City',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  const hoy = hoyRaw.charAt(0).toUpperCase() + hoyRaw.slice(1);
+
   let comidas = $state<Comida[]>([]);
   // Solo una tarjeta expandida a la vez — al abrir una se cierra la anterior.
   let expandedId = $state<number | null>(null);
@@ -102,6 +113,8 @@
 </script>
 
 <section class="comidas">
+  <p class="hoy">Hoy es: <strong>{hoy}</strong></p>
+
   <div class="botones">
     {#each TIPOS as t, i (t.label)}
       <button
@@ -191,6 +204,16 @@
     display: flex;
     flex-direction: column;
     gap: 1.2rem;
+    color: rgba(15, 23, 42, 0.9);
+  }
+
+  .hoy {
+    margin: 0;
+    font-size: 0.95rem;
+    color: rgba(15, 23, 42, 0.65);
+  }
+
+  .hoy strong {
     color: rgba(15, 23, 42, 0.9);
   }
 
