@@ -3,6 +3,12 @@
   // las comidas con al menos un consumo, cada una con sus consumos anidados,
   // ordenadas por fecha (más reciente primero). El total por comida se suma
   // aquí en el cliente.
+  //
+  // "Editar" un consumo = reabrir su MISMA conversación de IA (mismo
+  // conversation_id), precargada con el resultado ya guardado, para seguir
+  // chateando y corregirlo — no un formulario de campos sueltos. Al guardar
+  // de nuevo, el back hace upsert por conversation_id, así que ACTUALIZA esa
+  // fila en vez de crear una nueva.
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
 
@@ -10,6 +16,7 @@
 
   type Consumo = {
     id: number;
+    conversation_id: string;
     platillo: string | null;
     kilocalorias: number | null;
     proteinas: number | null;
@@ -17,13 +24,6 @@
     grasas: number | null;
   };
   type Comida = { id: number; tipo: string; fecha: string; created_at: string; consumos: Consumo[] };
-  type EditForm = {
-    platillo: string;
-    kilocalorias: number;
-    proteinas: number;
-    carbohidratos: number;
-    grasas: number;
-  };
 
   // El back solo distingue 4 tipos (las dos colaciones comparten "colacion").
   const TIPO_LABEL: Record<string, string> = {
@@ -36,20 +36,10 @@
   let comidas = $state<Comida[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
-  // Solo una tarjeta expandida a la vez, igual que en /nutricion.
+  // Solo una tarjeta expandida a la vez. Si editandoConsumo es null, el panel
+  // abre en modo "agregar nuevo"; si no, reabre esa conversación puntual.
   let expandedId = $state<number | null>(null);
-
-  // Edición inline de un consumo ya guardado (id del consumo, no de la comida).
-  let editingId = $state<number | null>(null);
-  let editForm = $state<EditForm>({
-    platillo: '',
-    kilocalorias: 0,
-    proteinas: 0,
-    carbohidratos: 0,
-    grasas: 0
-  });
-  let guardandoEdicion = $state(false);
-  let errorEdicion = $state<string | null>(null);
+  let editandoConsumo = $state<Consumo | null>(null);
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
@@ -68,78 +58,43 @@
   }
 
   function toggleExpand(id: number) {
-    expandedId = expandedId === id ? null : id;
-  }
-
-  // Al guardar un consumo desde el chat embebido: se agrega a la tarjeta y
-  // se cierra el diálogo (mismo patrón que /nutricion).
-  function onConsumoGuardado(comidaId: number, resultado: Consumo) {
-    comidas = comidas.map((c) =>
-      c.id === comidaId ? { ...c, consumos: [...c.consumos, resultado] } : c
-    );
-    expandedId = null;
-  }
-
-  function iniciarEdicion(x: Consumo) {
-    editingId = x.id;
-    editForm = {
-      platillo: x.platillo ?? '',
-      kilocalorias: x.kilocalorias ?? 0,
-      proteinas: x.proteinas ?? 0,
-      carbohidratos: x.carbohidratos ?? 0,
-      grasas: x.grasas ?? 0
-    };
-    errorEdicion = null;
-  }
-
-  function cancelarEdicion() {
-    editingId = null;
-    errorEdicion = null;
-  }
-
-  async function guardarEdicion(comidaId: number, consumoId: number) {
-    if (guardandoEdicion) return;
-    guardandoEdicion = true;
-    errorEdicion = null;
-    try {
-      const res = await fetch(`${API_URL}/consumos/${consumoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          platillo: editForm.platillo.trim() || null,
-          kilocalorias: editForm.kilocalorias,
-          proteinas: editForm.proteinas,
-          carbohidratos: editForm.carbohidratos,
-          grasas: editForm.grasas
-        })
-      });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try {
-          const j = await res.json();
-          detail = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
-        } catch {
-          /* sin cuerpo JSON */
-        }
-        throw new Error(detail);
-      }
-      const actualizado = (await res.json()) as Consumo;
-      comidas = comidas.map((c) =>
-        c.id === comidaId
-          ? { ...c, consumos: c.consumos.map((x) => (x.id === consumoId ? actualizado : x)) }
-          : c
-      );
-      editingId = null;
-    } catch (e) {
-      errorEdicion =
-        e instanceof TypeError
-          ? `No se pudo conectar con la API en ${API_URL}.`
-          : e instanceof Error
-            ? e.message
-            : String(e);
-    } finally {
-      guardandoEdicion = false;
+    if (expandedId === id && !editandoConsumo) {
+      expandedId = null;
+    } else {
+      expandedId = id;
     }
+    editandoConsumo = null;
+  }
+
+  function editarViaIA(comidaId: number, x: Consumo) {
+    if (expandedId === comidaId && editandoConsumo?.id === x.id) {
+      expandedId = null;
+      editandoConsumo = null;
+    } else {
+      expandedId = comidaId;
+      editandoConsumo = x;
+    }
+  }
+
+  // Al guardar desde el chat embebido (agregar nuevo O reabrir uno existente):
+  // si el id ya estaba en la lista, lo reemplaza (fue una edición); si no,
+  // lo agrega. El conversation_id se conserva del original para poder
+  // reabrirlo de nuevo después.
+  function onConsumoGuardado(comidaId: number, resultado: Omit<Consumo, 'conversation_id'>) {
+    comidas = comidas.map((c) => {
+      if (c.id !== comidaId) return c;
+      const existente = c.consumos.find((x) => x.id === resultado.id);
+      const actualizado: Consumo = {
+        ...resultado,
+        conversation_id: existente?.conversation_id ?? editandoConsumo?.conversation_id ?? ''
+      };
+      const consumos = existente
+        ? c.consumos.map((x) => (x.id === resultado.id ? actualizado : x))
+        : [...c.consumos, actualizado];
+      return { ...c, consumos };
+    });
+    expandedId = null;
+    editandoConsumo = null;
   }
 
   $effect(() => {
@@ -189,81 +144,45 @@
           <div class="consumos">
             {#each c.consumos as x (x.id)}
               <div class="consumo">
-                {#if editingId === x.id}
-                  <div class="consumo-edit">
-                    <input
-                      type="text"
-                      class="edit-platillo"
-                      bind:value={editForm.platillo}
-                      placeholder="Platillo"
-                    />
-                    <div class="edit-macros">
-                      <label>
-                        kcal
-                        <input type="number" step="0.1" bind:value={editForm.kilocalorias} />
-                      </label>
-                      <label>
-                        prot (g)
-                        <input type="number" step="0.1" bind:value={editForm.proteinas} />
-                      </label>
-                      <label>
-                        carb (g)
-                        <input type="number" step="0.1" bind:value={editForm.carbohidratos} />
-                      </label>
-                      <label>
-                        grasa (g)
-                        <input type="number" step="0.1" bind:value={editForm.grasas} />
-                      </label>
-                    </div>
-                    {#if errorEdicion}<div class="error">⚠️ {errorEdicion}</div>{/if}
-                    <div class="edit-actions">
-                      <button
-                        type="button"
-                        class="cancel-btn"
-                        onclick={cancelarEdicion}
-                        disabled={guardandoEdicion}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        class="save-btn"
-                        onclick={() => guardarEdicion(c.id, x.id)}
-                        disabled={guardandoEdicion}
-                      >
-                        {guardandoEdicion ? 'Guardando…' : 'Guardar'}
-                      </button>
-                    </div>
-                  </div>
-                {:else}
-                  <div class="consumo-head">
-                    {#if x.platillo}<span class="consumo-platillo">{x.platillo}</span>{/if}
-                    <button
-                      type="button"
-                      class="edit-btn"
-                      onclick={() => iniciarEdicion(x)}
-                      aria-label="Editar consumo"
+                <div class="consumo-head">
+                  {#if x.platillo}<span class="consumo-platillo">{x.platillo}</span>{/if}
+                  <button
+                    type="button"
+                    class="edit-btn"
+                    onclick={() => editarViaIA(c.id, x)}
+                    aria-label="Editar consumo con el asistente"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="consumo-macros">
-                    <span class="macro-mini kcal">{fmt(x.kilocalorias ?? 0)} kcal</span>
-                    <span class="macro-mini">{fmt(x.proteinas ?? 0)} g prot</span>
-                    <span class="macro-mini">{fmt(x.carbohidratos ?? 0)} g carb</span>
-                    <span class="macro-mini">{fmt(x.grasas ?? 0)} g grasa</span>
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+                </div>
+                <div class="consumo-macros">
+                  <span class="macro-mini kcal">{fmt(x.kilocalorias ?? 0)} kcal</span>
+                  <span class="macro-mini">{fmt(x.proteinas ?? 0)} g prot</span>
+                  <span class="macro-mini">{fmt(x.carbohidratos ?? 0)} g carb</span>
+                  <span class="macro-mini">{fmt(x.grasas ?? 0)} g grasa</span>
+                </div>
+
+                {#if editandoConsumo?.id === x.id && expandedId === c.id}
+                  <div class="consumo-panel">
+                    <ChatKilocalculator
+                      comidaId={c.id}
+                      mostrarTitulo={false}
+                      preConversationId={x.conversation_id}
+                      preResultado={x}
+                      onGuardado={(r) => onConsumoGuardado(c.id, r)}
+                    />
                   </div>
                 {/if}
               </div>
@@ -271,10 +190,10 @@
           </div>
 
           <button type="button" class="toggle-hint" onclick={() => toggleExpand(c.id)}>
-            {c.id === expandedId ? '− Cerrar' : '+ Agregar consumo'}
+            {c.id === expandedId && !editandoConsumo ? '− Cerrar' : '+ Agregar consumo'}
           </button>
 
-          {#if c.id === expandedId}
+          {#if c.id === expandedId && !editandoConsumo}
             <div class="consumo-panel">
               <ChatKilocalculator
                 comidaId={c.id}
@@ -405,98 +324,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-  }
-
-  .consumo-edit {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .edit-platillo {
-    padding: 0.45rem 0.6rem;
-    border-radius: 8px;
-    border: 1px solid rgba(15, 23, 42, 0.15);
-    background: rgba(255, 255, 255, 0.7);
-    font: inherit;
-    font-size: 0.9rem;
-    color: rgba(15, 23, 42, 0.9);
-  }
-
-  .edit-platillo:focus {
-    outline: none;
-    border-color: rgba(37, 99, 235, 0.55);
-  }
-
-  .edit-macros {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-  }
-
-  .edit-macros label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.72rem;
-    color: rgba(15, 23, 42, 0.6);
-  }
-
-  .edit-macros input {
-    width: 5.5rem;
-    padding: 0.35rem 0.5rem;
-    border-radius: 6px;
-    border: 1px solid rgba(15, 23, 42, 0.15);
-    background: rgba(255, 255, 255, 0.7);
-    font: inherit;
-    font-size: 0.85rem;
-    color: rgba(15, 23, 42, 0.9);
-  }
-
-  .edit-macros input:focus {
-    outline: none;
-    border-color: rgba(37, 99, 235, 0.55);
-  }
-
-  .edit-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .cancel-btn,
-  .save-btn {
-    padding: 0.4rem 0.85rem;
-    border-radius: 8px;
-    font: inherit;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .cancel-btn {
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    color: rgba(15, 23, 42, 0.75);
-  }
-
-  .cancel-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.8);
-  }
-
-  .save-btn {
-    background: rgba(37, 99, 235, 0.12);
-    border: 1px solid rgba(37, 99, 235, 0.4);
-    color: #1e3a8a;
-  }
-
-  .save-btn:hover:not(:disabled) {
-    background: rgba(37, 99, 235, 0.2);
-  }
-
-  .cancel-btn:disabled,
-  .save-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .macro-mini {

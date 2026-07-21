@@ -11,21 +11,39 @@
   //   de seguimiento, o resultado final.
   // - LECTURA TOLERANTE a la transición del back: si aún manda el schema viejo
   //   (totales.kcal / proteinas_g / ...), igual lo leemos.
+  // - EDITAR un consumo ya guardado = reabrir su MISMA conversación
+  //   (preConversationId + preResultado, típicamente desde /listado): se
+  //   precarga como si fuera el último turno ya respondido, y al seguir
+  //   chateando + Guardar, el back hace upsert por conversation_id — así que
+  //   ACTUALIZA esa fila en vez de crear una nueva.
   import { env } from '$env/dynamic/public';
 
   type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
-  type ResultadoGuardado = { id: number; platillo: string | null } & Macros;
+  type ResultadoGuardado = { id: number; conversation_id: string; platillo: string | null } & Macros;
+  type PreResultado = {
+    platillo: string | null;
+    kilocalorias: number | null;
+    proteinas: number | null;
+    carbohidratos: number | null;
+    grasas: number | null;
+  };
 
   let {
     comidaId = null,
     mostrarTitulo = true,
-    onGuardado
+    onGuardado,
+    preConversationId = null,
+    preResultado = null
   }: {
     comidaId?: number | null;
     mostrarTitulo?: boolean;
     // Se llama tras un guardado exitoso — el padre lo usa (p.ej. en
     // /nutricion) para cerrar el panel y mostrar el resultado en la tarjeta.
     onGuardado?: (resultado: ResultadoGuardado) => void;
+    // Para reabrir la conversación de un consumo ya guardado en vez de
+    // empezar una nueva.
+    preConversationId?: string | null;
+    preResultado?: PreResultado | null;
   } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -43,14 +61,33 @@
   type ChatResponse = { conversation_id: string; respuesta: Respuesta };
   type Turn = { role: 'user'; text: string } | { role: 'assistant'; respuesta: Respuesta };
 
-  let conversationId = $state<string | null>(null);
-  let turns = $state<Turn[]>([]);
+  // Si viene preResultado, se precarga como si ya fuera el último turno
+  // respondido (y ya guardado) — el usuario sigue chateando desde ahí.
+  let conversationId = $state<string | null>(preConversationId ?? null);
+  let turns = $state<Turn[]>(
+    preResultado
+      ? [
+          {
+            role: 'assistant',
+            respuesta: {
+              requiere_mas_informacion: false,
+              pregunta: null,
+              platillo: preResultado.platillo,
+              kilocalorias: preResultado.kilocalorias,
+              proteinas: preResultado.proteinas,
+              carbohidratos: preResultado.carbohidratos,
+              grasas: preResultado.grasas
+            }
+          }
+        ]
+      : []
+  );
   let input = $state('');
   let loading = $state(false);
   let error = $state<string | null>(null);
 
   let savingIdx = $state<number | null>(null);
-  let savedIdx = $state<Set<number>>(new Set());
+  let savedIdx = $state<Set<number>>(preResultado ? new Set([0]) : new Set());
   let saveError = $state<string | null>(null);
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
@@ -151,7 +188,7 @@
       }
       const data = (await res.json()) as { id: number };
       savedIdx = new Set(savedIdx).add(i);
-      if (m) onGuardado?.({ id: data.id, platillo: r.platillo, ...m });
+      if (m) onGuardado?.({ id: data.id, conversation_id: conversationId, platillo: r.platillo, ...m });
     } catch (e) {
       saveError =
         e instanceof TypeError
