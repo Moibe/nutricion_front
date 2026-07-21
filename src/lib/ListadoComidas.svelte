@@ -44,6 +44,10 @@
   let comidas = $state<Comida[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
+  // Error transitorio de cambiar-fecha, SEPARADO del error de carga: se
+  // muestra aditivamente (sin ocultar la lista) — el de carga sí es
+  // sustitutivo porque en ese caso no hay tarjetas que mostrar.
+  let errorFecha = $state<string | null>(null);
   // Solo una tarjeta expandida a la vez. Si editandoConsumo es null, el panel
   // abre en modo "agregar nuevo"; si no, reabre esa conversación puntual.
   let expandedId = $state<number | null>(null);
@@ -55,14 +59,43 @@
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
-  function formatoFecha(fecha: string) {
-    const [y, m, d] = fecha.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+  // Cambia la fecha de una comida (input de calendario). Optimista con
+  // rollback si el PATCH falla. En /hoy, cambiar la fecha a otro día saca la
+  // tarjeta de la vista (comidasVisibles se recomputa) — comportamiento
+  // correcto: ya no es del día en turno.
+  async function cambiarFecha(id: number, nuevaFecha: string, inputEl?: HTMLInputElement) {
+    errorFecha = null;
+    const anterior = comidas.find((c) => c.id === id)?.fecha;
+    // Fecha vacía (p.ej. el botón "limpiar" del input nativo en desktop): no
+    // hacemos PATCH (una comida siempre tiene fecha) y repintamos el input a la
+    // fecha real — si no, quedaría en blanco desincronizado del modelo (el
+    // binding es unidireccional y no vuelve a pintar un valor sin cambio).
+    if (!nuevaFecha) {
+      if (inputEl && anterior) inputEl.value = anterior;
+      return;
+    }
+    comidas = comidas.map((c) => (c.id === id ? { ...c, fecha: nuevaFecha } : c));
+    try {
+      const res = await fetch(`${API_URL}/comidas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha: nuevaFecha })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // Rollback SOLO si la fila sigue en el valor que este llamado escribió;
+      // si un cambio posterior ya la movió a otra fecha (guardada bien), no lo
+      // pisamos con el rollback de un PATCH viejo y fallido.
+      let revertido = false;
+      comidas = comidas.map((c) => {
+        if (c.id === id && c.fecha === nuevaFecha) {
+          revertido = true;
+          return { ...c, fecha: anterior ?? c.fecha };
+        }
+        return c;
+      });
+      if (revertido) errorFecha = 'No se pudo actualizar la fecha.';
+    }
   }
 
   function totalKcal(c: Comida) {
@@ -132,6 +165,10 @@
 <section class="listado">
   <h1>{soloHoy ? 'Comidas de hoy' : 'Comidas guardadas'}</h1>
 
+  {#if errorFecha}
+    <div class="error">⚠️ {errorFecha}</div>
+  {/if}
+
   {#if cargando}
     <p class="estado">Cargando…</p>
   {:else if error}
@@ -151,9 +188,33 @@
       {#each comidasVisibles as c (c.id)}
         <div class="card">
           <div class="card-head">
-            <div>
+            <div class="card-head-left">
               <span class="card-label">{TIPO_LABEL[c.tipo] ?? c.tipo}</span>
-              <span class="card-fecha">{formatoFecha(c.fecha)}</span>
+              <div class="fecha-picker">
+                <svg
+                  class="fecha-icon"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                <input
+                  type="date"
+                  class="fecha-input"
+                  aria-label="Cambiar fecha de esta comida"
+                  value={c.fecha}
+                  onchange={(e) =>
+                    cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
+                />
+              </div>
             </div>
             <span class="total-kcal">{fmt(totalKcal(c))} kcal</span>
           </div>
@@ -266,10 +327,17 @@
 
   .card-head {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.8rem;
     flex-wrap: wrap;
+  }
+
+  .card-head-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
   }
 
   .card-label {
@@ -278,10 +346,34 @@
     color: rgba(15, 23, 42, 0.95);
   }
 
-  .card-fecha {
-    margin-left: 0.6rem;
+  .fecha-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    color: rgba(15, 23, 42, 0.75);
+    width: fit-content;
+  }
+
+  .fecha-picker:hover {
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  .fecha-icon {
+    flex-shrink: 0;
+  }
+
+  .fecha-input {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     font-size: 0.85rem;
-    color: rgba(15, 23, 42, 0.6);
+    padding: 0;
+    cursor: pointer;
   }
 
   .total-kcal {
