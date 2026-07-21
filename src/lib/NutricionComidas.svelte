@@ -2,6 +2,10 @@
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
 
+  // ocultarFecha: en el contexto de /hoy la comida siempre es de hoy, así que
+  // no tiene sentido el calendario — se oculta el selector de fecha.
+  let { ocultarFecha = false }: { ocultarFecha?: boolean } = $props();
+
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
   // "Colación 1"/"Colación 2" son dos botones distintos en la UI, pero el
@@ -157,42 +161,44 @@
         <div class="card" class:active={c.id === expandedId}>
           <div class="card-header">
             <span class="card-label">{c.label}</span>
-            <div class="fecha-picker">
-              <svg
-                class="fecha-icon"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
-              <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
-              <!-- Input transparente que cubre toda la píldora: un tap abre el
-                   picker nativo (confiable en mobile); showPicker es refuerzo
-                   para desktop. -->
-              <input
-                type="date"
-                class="fecha-input"
-                aria-label="Elegir fecha de {c.label}"
-                value={c.fecha}
-                onclick={(e) => {
-                  try {
-                    (e.currentTarget as HTMLInputElement).showPicker?.();
-                  } catch {
-                    /* mobile: el tap ya abrió el picker */
-                  }
-                }}
-                onchange={(e) =>
-                  cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
-              />
-            </div>
+            {#if !ocultarFecha}
+              <div class="fecha-picker">
+                <svg
+                  class="fecha-icon"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
+                <!-- Input transparente que cubre toda la píldora: un tap abre el
+                     picker nativo (confiable en mobile); showPicker es refuerzo
+                     para desktop. -->
+                <input
+                  type="date"
+                  class="fecha-input"
+                  aria-label="Elegir fecha de {c.label}"
+                  value={c.fecha}
+                  onclick={(e) => {
+                    try {
+                      (e.currentTarget as HTMLInputElement).showPicker?.();
+                    } catch {
+                      /* mobile: el tap ya abrió el picker */
+                    }
+                  }}
+                  onchange={(e) =>
+                    cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
+                />
+              </div>
+            {/if}
           </div>
 
           {#if c.resultados.length > 0}

@@ -225,8 +225,9 @@
   {:else if comidasVisibles.length === 0}
     {#if soloHoy}
       <!-- Sin comidas hoy: mostramos directamente la UI de Nutrición para
-           registrar una de una vez, en vez de solo un mensaje. -->
-      <NutricionComidas />
+           registrar una de una vez, en vez de solo un mensaje. Sin calendario:
+           en el contexto de Hoy la comida siempre es de hoy. -->
+      <NutricionComidas ocultarFecha />
     {:else}
       <p class="estado">
         Aún no hay comidas guardadas. Crea una en <a href="/nutricion">Nutrición</a> y agrégale un
