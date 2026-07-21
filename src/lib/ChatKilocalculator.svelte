@@ -61,8 +61,18 @@
   type ChatResponse = { conversation_id: string; respuesta: Respuesta };
   type Turn = { role: 'user'; text: string } | { role: 'assistant'; respuesta: Respuesta };
 
-  // Si viene preResultado, se precarga como si ya fuera el último turno
-  // respondido (y ya guardado) — el usuario sigue chateando desde ahí.
+  // Modo edición (viene preResultado): reusa el conversation_id original para
+  // que al Guardar el back haga upsert sobre la MISMA fila, y arranca con un
+  // saludo de edición generado localmente (sin gastar tokens). El contexto del
+  // consumo se inyecta en el back con el primer mensaje del usuario, porque el
+  // hilo de OpenAI ya no conserva ese contexto de forma confiable.
+  const r1 = (n: number | null) => (n == null ? 0 : Math.round(n * 10) / 10);
+
+  function resumenConsumo(p: PreResultado): string {
+    const nombre = p.platillo ?? 'este consumo';
+    return `${nombre} — ${r1(p.kilocalorias)} kcal, ${r1(p.proteinas)} g proteínas, ${r1(p.carbohidratos)} g carbohidratos, ${r1(p.grasas)} g grasas`;
+  }
+
   let conversationId = $state<string | null>(preConversationId ?? null);
   let turns = $state<Turn[]>(
     preResultado
@@ -70,24 +80,26 @@
           {
             role: 'assistant',
             respuesta: {
-              requiere_mas_informacion: false,
-              pregunta: null,
-              platillo: preResultado.platillo,
-              kilocalorias: preResultado.kilocalorias,
-              proteinas: preResultado.proteinas,
-              carbohidratos: preResultado.carbohidratos,
-              grasas: preResultado.grasas
+              requiere_mas_informacion: true,
+              pregunta: `Estás editando: ${resumenConsumo(preResultado)}.\n\n¿Qué deseas modificar?`,
+              platillo: null,
+              kilocalorias: null,
+              proteinas: null,
+              carbohidratos: null,
+              grasas: null
             }
           }
         ]
       : []
   );
+  // Contexto a mandar SOLO en el primer mensaje de edición (luego el hilo ya lo tiene).
+  let contextoEdicion = $state<string | null>(preResultado ? resumenConsumo(preResultado) : null);
   let input = $state('');
   let loading = $state(false);
   let error = $state<string | null>(null);
 
   let savingIdx = $state<number | null>(null);
-  let savedIdx = $state<Set<number>>(preResultado ? new Set([0]) : new Set());
+  let savedIdx = $state<Set<number>>(new Set());
   let saveError = $state<string | null>(null);
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
@@ -121,11 +133,16 @@
     loading = true;
     error = null;
 
+    // El contexto de edición se manda solo una vez (primer mensaje); después
+    // el hilo de la conversación ya lo tiene.
+    const contexto = contextoEdicion;
+    contextoEdicion = null;
+
     try {
       const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje, conversation_id: conversationId })
+        body: JSON.stringify({ mensaje, conversation_id: conversationId, contexto })
       });
 
       if (!res.ok) {
@@ -467,6 +484,7 @@
 
   .bubble.question p {
     margin: 0;
+    white-space: pre-line;
   }
 
   .bubble.result h2 {
