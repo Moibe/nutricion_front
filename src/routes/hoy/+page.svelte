@@ -2,4 +2,4 @@
   import ListadoComidas from '$lib/ListadoComidas.svelte';
 </script>
 
-<ListadoComidas />
+<ListadoComidas soloHoy />

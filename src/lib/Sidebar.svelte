@@ -58,6 +58,10 @@
 </script>
 
 {#snippet navLinks()}
+  <a href="/hoy" class="nav-item" aria-current={isActive('/hoy') ? 'page' : undefined}>
+    <span class="nav-ico" aria-hidden="true"></span>
+    <span>Hoy</span>
+  </a>
   <a href="/nutricion" class="nav-item" aria-current={isActive('/nutricion') ? 'page' : undefined}>
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Nutrición</span>
