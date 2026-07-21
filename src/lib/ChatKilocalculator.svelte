@@ -14,7 +14,7 @@
   import { env } from '$env/dynamic/public';
 
   type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
-  type ResultadoGuardado = { platillo: string | null } & Macros;
+  type ResultadoGuardado = { id: number; platillo: string | null } & Macros;
 
   let {
     comidaId = null,
@@ -149,8 +149,9 @@
         }
         throw new Error(detail);
       }
+      const data = (await res.json()) as { id: number };
       savedIdx = new Set(savedIdx).add(i);
-      if (m) onGuardado?.({ platillo: r.platillo, ...m });
+      if (m) onGuardado?.({ id: data.id, platillo: r.platillo, ...m });
     } catch (e) {
       saveError =
         e instanceof TypeError
