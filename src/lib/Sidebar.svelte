@@ -62,10 +62,6 @@
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Hoy</span>
   </a>
-  <a href="/nutricion" class="nav-item" aria-current={isActive('/nutricion') ? 'page' : undefined}>
-    <span class="nav-ico" aria-hidden="true"></span>
-    <span>Nutrición</span>
-  </a>
   <a href="/listado" class="nav-item" aria-current={isActive('/listado') ? 'page' : undefined}>
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Listado</span>
@@ -302,7 +298,7 @@
       z-index: 16;
       transform: translateX(-120%);
       /* Más opaco que el sidebar de escritorio: aquí sí hay contenido con
-         texto detrás (p.ej. los botones de /nutricion) y con solo 0.35 de
+         texto detrás (p.ej. los botones de /hoy) y con solo 0.35 de
          alfa se alcanzaba a leer encimado con los links del drawer. */
       background: rgba(226, 240, 255, 0.97);
     }

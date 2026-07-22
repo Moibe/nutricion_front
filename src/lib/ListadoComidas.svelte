@@ -13,7 +13,6 @@
   // conversation_id, así que ACTUALIZA esa fila en vez de crear una nueva.
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
-  import NutricionComidas from '$lib/NutricionComidas.svelte';
 
   let { soloHoy = false }: { soloHoy?: boolean } = $props();
 
@@ -28,9 +27,25 @@
     carbohidratos: number | null;
     grasas: number | null;
   };
-  type Comida = { id: number; tipo: string; fecha: string; created_at: string; consumos: Consumo[] };
+  type Comida = {
+    id: number;
+    tipo: string;
+    fecha: string;
+    orden: number;
+    created_at: string;
+    consumos: Consumo[];
+  };
 
-  // El back solo distingue 4 tipos (las dos colaciones comparten "colacion").
+  // "Colación 1"/"Colación 2" comparten tipo "colacion"; el índice acá se manda
+  // como `orden` (0..4) para poder ubicarlas en la secuencia real del día.
+  const TIPOS = [
+    { label: 'Desayuno', tipo: 'desayuno' },
+    { label: 'Colación 1', tipo: 'colacion' },
+    { label: 'Comida', tipo: 'comida' },
+    { label: 'Colación 2', tipo: 'colacion' },
+    { label: 'Cena', tipo: 'cena' }
+  ] as const;
+
   const TIPO_LABEL: Record<string, string> = {
     desayuno: 'Desayuno',
     colacion: 'Colación',
@@ -38,17 +53,34 @@
     cena: 'Cena'
   };
 
+  // Etiqueta a mostrar: las dos colaciones se distinguen por su orden (1 vs 3).
+  function etiqueta(c: Comida): string {
+    if (c.tipo === 'colacion') return c.orden <= 1 ? 'Colación 1' : 'Colación 2';
+    return TIPO_LABEL[c.tipo] ?? c.tipo;
+  }
+
   // Fecha de hoy en CDMX como "YYYY-MM-DD" (en-CA formatea ISO), para comparar
   // 1:1 con comida.fecha, que el back guarda en esa misma zona y formato.
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
 
+  // "Hoy es: Martes, 21 de julio de 2026" para el encabezado de /hoy.
+  const hoyLargoRaw = new Date().toLocaleDateString('es-MX', {
+    timeZone: 'America/Mexico_City',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
+
   let comidas = $state<Comida[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
-  // Error transitorio de cambiar-fecha, SEPARADO del error de carga: se
-  // muestra aditivamente (sin ocultar la lista) — el de carga sí es
-  // sustitutivo porque en ese caso no hay tarjetas que mostrar.
-  let errorFecha = $state<string | null>(null);
+  // Error transitorio de una acción (cambiar fecha, eliminar, crear), SEPARADO
+  // del error de carga: se muestra aditivamente (sin ocultar la lista) — el de
+  // carga sí es sustitutivo porque en ese caso no hay tarjetas que mostrar.
+  let errorAccion = $state<string | null>(null);
+  let creando = $state<string | null>(null);
   // Solo una tarjeta expandida a la vez. Si editandoConsumo es null, el panel
   // abre en modo "agregar nuevo"; si no, reabre esa conversación puntual.
   let expandedId = $state<number | null>(null);
@@ -58,11 +90,44 @@
   let confirmandoEliminar = $state<number | null>(null);
   let eliminandoId = $state<number | null>(null);
 
+  // En /hoy: solo las del día, ordenadas por secuencia (orden) — importante
+  // porque las recién creadas se agregan al final del array local.
   const comidasVisibles = $derived(
-    soloHoy ? comidas.filter((c) => c.fecha === hoyISO) : comidas
+    soloHoy
+      ? comidas.filter((c) => c.fecha === hoyISO).slice().sort((a, b) => a.orden - b.orden)
+      : comidas
   );
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
+
+  // Crear una comida (botones de /hoy). POST /comidas la crea con fecha de hoy;
+  // se agrega al listado local vacía (sin consumos) para poder abrir el chat y
+  // registrar el primero. Si nunca se le agrega un consumo, al recargar
+  // desaparece (GET /comidas solo trae comidas con al menos un consumo).
+  async function crearComida(label: string, tipo: string, orden: number) {
+    if (creando) return;
+    creando = label;
+    errorAccion = null;
+    try {
+      const res = await fetch(`${API_URL}/comidas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, orden })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      comidas = [...comidas, { ...data, consumos: [] }];
+    } catch (e) {
+      errorAccion =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      creando = null;
+    }
+  }
 
   // Fecha en formato largo legible: "lunes, 20 de julio de 2026". El input date
   // nativo solo sabe mostrar dd/mm/yyyy, así que se muestra este texto encima y
@@ -82,7 +147,7 @@
   // tarjeta de la vista (comidasVisibles se recomputa) — comportamiento
   // correcto: ya no es del día en turno.
   async function cambiarFecha(id: number, nuevaFecha: string, inputEl?: HTMLInputElement) {
-    errorFecha = null;
+    errorAccion = null;
     const anterior = comidas.find((c) => c.id === id)?.fecha;
     // Fecha vacía (p.ej. el botón "limpiar" del input nativo en desktop): no
     // hacemos PATCH (una comida siempre tiene fecha) y repintamos el input a la
@@ -112,7 +177,7 @@
         }
         return c;
       });
-      if (revertido) errorFecha = 'No se pudo actualizar la fecha.';
+      if (revertido) errorAccion = 'No se pudo actualizar la fecha.';
     }
   }
 
@@ -146,7 +211,7 @@
   async function eliminarConsumo(comidaId: number, consumoId: number) {
     if (eliminandoId !== null) return;
     eliminandoId = consumoId;
-    errorFecha = null;
+    errorAccion = null;
     try {
       const res = await fetch(`${API_URL}/consumos/${consumoId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -156,7 +221,9 @@
             ? { ...c, consumos: c.consumos.filter((x) => x.id !== consumoId) }
             : c
         )
-        .filter((c) => c.consumos.length > 0);
+        // Solo quita ESTA comida si quedó vacía; no borra otras comidas vacías
+        // que estén en progreso (recién creadas en /hoy, aún sin consumo).
+        .filter((c) => c.id !== comidaId || c.consumos.length > 0);
       // Si el consumo borrado estaba abierto en edición, cerrar ese panel.
       if (editandoConsumo?.id === consumoId) {
         editandoConsumo = null;
@@ -164,7 +231,7 @@
       }
       confirmandoEliminar = null;
     } catch {
-      errorFecha = 'No se pudo eliminar el consumo.';
+      errorAccion = 'No se pudo eliminar el consumo.';
     } finally {
       eliminandoId = null;
     }
@@ -214,8 +281,27 @@
 <section class="listado">
   <h1>{soloHoy ? 'Comidas de hoy' : 'Comidas guardadas'}</h1>
 
-  {#if errorFecha}
-    <div class="error">⚠️ {errorFecha}</div>
+  {#if errorAccion}
+    <div class="error">⚠️ {errorAccion}</div>
+  {/if}
+
+  {#if soloHoy && !cargando && !error}
+    <!-- En /hoy, los botones para crear comidas están SIEMPRE (no solo cuando
+         está vacío), para poder agregar una 2ª comida del día. La fecha es
+         siempre hoy, por eso no hay calendario aquí. -->
+    <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+    <div class="botones">
+      {#each TIPOS as t, i (t.label)}
+        <button
+          type="button"
+          class="tipo-btn"
+          onclick={() => crearComida(t.label, t.tipo, i)}
+          disabled={creando !== null}
+        >
+          {creando === t.label ? '…' : t.label}
+        </button>
+      {/each}
+    </div>
   {/if}
 
   {#if cargando}
@@ -223,15 +309,9 @@
   {:else if error}
     <div class="error">⚠️ {error}</div>
   {:else if comidasVisibles.length === 0}
-    {#if soloHoy}
-      <!-- Sin comidas hoy: mostramos directamente la UI de Nutrición para
-           registrar una de una vez, en vez de solo un mensaje. Sin calendario:
-           en el contexto de Hoy la comida siempre es de hoy. -->
-      <NutricionComidas ocultarFecha />
-    {:else}
+    {#if !soloHoy}
       <p class="estado">
-        Aún no hay comidas guardadas. Crea una en <a href="/nutricion">Nutrición</a> y agrégale un
-        consumo.
+        Aún no hay comidas guardadas. Crea una en <a href="/hoy">Hoy</a> y agrégale un consumo.
       </p>
     {/if}
   {:else}
@@ -240,44 +320,46 @@
         <div class="card">
           <div class="card-head">
             <div class="card-head-left">
-              <span class="card-label">{TIPO_LABEL[c.tipo] ?? c.tipo}</span>
-              <div class="fecha-picker">
-                <svg
-                  class="fecha-icon"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M16 2v4M8 2v4M3 10h18" />
-                </svg>
-                <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
-                <!-- Input REAL transparente que cubre toda la píldora: un tap
-                     directo abre el picker nativo (lo confiable en mobile).
-                     showPicker() es solo refuerzo para desktop; si falla, el
-                     tap igual funciona. -->
-                <input
-                  type="date"
-                  class="fecha-input"
-                  aria-label="Cambiar fecha de esta comida"
-                  value={c.fecha}
-                  onclick={(e) => {
-                    try {
-                      (e.currentTarget as HTMLInputElement).showPicker?.();
-                    } catch {
-                      /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
-                    }
-                  }}
-                  onchange={(e) =>
-                    cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
-                />
-              </div>
+              <span class="card-label">{etiqueta(c)}</span>
+              {#if !soloHoy}
+                <div class="fecha-picker">
+                  <svg
+                    class="fecha-icon"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                  </svg>
+                  <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
+                  <!-- Input REAL transparente que cubre toda la píldora: un tap
+                       directo abre el picker nativo (lo confiable en mobile).
+                       showPicker() es solo refuerzo para desktop; si falla, el
+                       tap igual funciona. -->
+                  <input
+                    type="date"
+                    class="fecha-input"
+                    aria-label="Cambiar fecha de esta comida"
+                    value={c.fecha}
+                    onclick={(e) => {
+                      try {
+                        (e.currentTarget as HTMLInputElement).showPicker?.();
+                      } catch {
+                        /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
+                      }
+                    }}
+                    onchange={(e) =>
+                      cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
+                  />
+                </div>
+              {/if}
             </div>
             <span class="total-kcal">{fmt(totalKcal(c))} kcal</span>
           </div>
@@ -419,6 +501,49 @@
 
   .estado a {
     color: #1e3a8a;
+  }
+
+  .hoy {
+    margin: 0;
+    font-size: 0.95rem;
+    color: rgba(15, 23, 42, 0.65);
+  }
+
+  .hoy strong {
+    color: rgba(15, 23, 42, 0.9);
+  }
+
+  .botones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .tipo-btn {
+    flex: 1;
+    min-width: 110px;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    background: rgba(255, 255, 255, 0.55);
+    color: #1e3a8a;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease;
+  }
+
+  .tipo-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(37, 99, 235, 0.55);
+  }
+
+  .tipo-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .cards {
