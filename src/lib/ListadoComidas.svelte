@@ -95,6 +95,11 @@
   // borrar por accidente; el id "en vuelo" mientras corre el DELETE.
   let confirmandoEliminar = $state<number | null>(null);
   let eliminandoId = $state<number | null>(null);
+  // Borrar la comida COMPLETA (ícono de bote del header de la tarjeta):
+  // mismo patrón de confirmación inline, pero con su propio estado — es una
+  // acción distinta a borrar un solo consumo.
+  let confirmandoEliminarComida = $state<number | null>(null);
+  let eliminandoComidaId = $state<number | null>(null);
 
   // En /hoy: solo las del día, ordenadas por secuencia (orden) — importante
   // porque las recién creadas se agregan al final del array local. En
@@ -270,6 +275,28 @@
     }
   }
 
+  // Elimina una comida COMPLETA (DELETE /comidas/{id}): borra la fila y todos
+  // sus consumos de un jalón (ícono de bote del header, no el de cada consumo).
+  async function eliminarComida(comidaId: number) {
+    if (eliminandoComidaId !== null) return;
+    eliminandoComidaId = comidaId;
+    errorAccion = null;
+    try {
+      const res = await fetch(`${API_URL}/comidas/${comidaId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      comidas = comidas.filter((c) => c.id !== comidaId);
+      if (expandedId === comidaId) {
+        expandedId = null;
+        editandoConsumo = null;
+      }
+      confirmandoEliminarComida = null;
+    } catch {
+      errorAccion = 'No se pudo eliminar la comida.';
+    } finally {
+      eliminandoComidaId = null;
+    }
+  }
+
   // Al guardar desde el chat embebido (agregar nuevo O reabrir uno existente):
   // si el id ya estaba en la lista, lo reemplaza (fue una edición); si no,
   // lo agrega. El conversation_id se conserva del original para poder
@@ -355,7 +382,51 @@
         <div class="card">
           <div class="card-head">
             <span class="card-label">{etiqueta(c)}</span>
+            <button
+              type="button"
+              class="icon-btn card-borrar"
+              onclick={() => (confirmandoEliminarComida = c.id)}
+              aria-label="Eliminar esta comida completa"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+                <path d="M10 11v6M14 11v6" />
+              </svg>
+            </button>
           </div>
+
+          {#if confirmandoEliminarComida === c.id}
+            <div class="confirmar-eliminar">
+              <span>¿Eliminar toda esta comida y sus consumos?</span>
+              <div class="confirmar-acciones">
+                <button
+                  type="button"
+                  class="cancelar-btn"
+                  onclick={() => (confirmandoEliminarComida = null)}
+                  disabled={eliminandoComidaId !== null}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="eliminar-btn"
+                  onclick={() => eliminarComida(c.id)}
+                  disabled={eliminandoComidaId !== null}
+                >
+                  {eliminandoComidaId === c.id ? 'Eliminando…' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          {/if}
 
           <div class="card-sub">
             <div class="card-totales">
@@ -603,6 +674,12 @@
   .card-head {
     display: flex;
     align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .card-borrar {
+    flex-shrink: 0;
   }
 
   .card-label {
