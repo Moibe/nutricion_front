@@ -129,15 +129,16 @@
     }
   }
 
-  // Fecha en formato largo legible: "lunes, 20 de julio de 2026". El input date
-  // nativo solo sabe mostrar dd/mm/yyyy, así que se muestra este texto encima y
-  // el input queda transparente pero tappable debajo (ver .fecha-input en CSS).
+  // Fecha corta legible: "20 jul 2026". El input date nativo solo sabe mostrar
+  // dd/mm/yyyy, así que se muestra este texto encima y el input queda
+  // transparente pero tappable debajo (ver .fecha-input en CSS). Corta (no
+  // formato largo con día de la semana) para que quepa junto a los totales
+  // en la misma línea sin necesitar deslizar en pantallas angostas.
   function formatoFecha(fecha: string) {
     const [y, m, d] = fecha.split('-').map(Number);
     return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
-      weekday: 'long',
       day: 'numeric',
-      month: 'long',
+      month: 'short',
       year: 'numeric'
     });
   }
@@ -580,13 +581,23 @@
     color: rgba(15, 23, 42, 0.95);
   }
 
+  /* nowrap + scroll horizontal en vez de flex-wrap: si no cabe en una línea
+     (totales + fecha), preferimos que se pueda deslizar de lado a que la
+     fecha se baje a una 2a línea y agrande la tarjeta. */
   .card-sub {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.8rem;
-    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     margin-top: 0.6rem;
+  }
+
+  .card-sub::-webkit-scrollbar {
+    display: none;
   }
 
   .fecha-picker {
@@ -600,6 +611,7 @@
     border: 1px solid rgba(15, 23, 42, 0.12);
     color: rgba(15, 23, 42, 0.75);
     width: fit-content;
+    flex-shrink: 0;
     cursor: pointer;
   }
 
@@ -632,8 +644,9 @@
 
   .card-totales {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 0.35rem;
   }
 
   .total-big {
@@ -643,7 +656,7 @@
     background: rgba(255, 255, 255, 0.6);
     border: 1px solid rgba(15, 23, 42, 0.12);
     border-radius: 999px;
-    padding: 0.35rem 0.85rem;
+    padding: 0.3rem 0.6rem;
     white-space: nowrap;
   }
 
