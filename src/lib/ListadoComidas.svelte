@@ -323,58 +323,56 @@
       {#each comidasVisibles as c (c.id)}
         <div class="card">
           <div class="card-head">
-            <div class="card-head-left">
-              <span class="card-label">{etiqueta(c)}</span>
-              {#if !soloHoy}
-                <div class="fecha-picker">
-                  <svg
-                    class="fecha-icon"
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M16 2v4M8 2v4M3 10h18" />
-                  </svg>
-                  <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
-                  <!-- Input REAL transparente que cubre toda la píldora: un tap
-                       directo abre el picker nativo (lo confiable en mobile).
-                       showPicker() es solo refuerzo para desktop; si falla, el
-                       tap igual funciona. -->
-                  <input
-                    type="date"
-                    class="fecha-input"
-                    aria-label="Cambiar fecha de esta comida"
-                    value={c.fecha}
-                    onclick={(e) => {
-                      try {
-                        (e.currentTarget as HTMLInputElement).showPicker?.();
-                      } catch {
-                        /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
-                      }
-                    }}
-                    onchange={(e) =>
-                      cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
-                  />
-                </div>
-              {/if}
-            </div>
-            <span class="total-kcal">{fmt(totalKcal(c))} kcal</span>
+            <span class="card-label">{etiqueta(c)}</span>
           </div>
 
-          {#if c.consumos.length > 0}
+          <div class="card-sub">
             <div class="card-totales">
-              <span class="macro-mini">Total: {fmt(totalMacro(c, 'proteinas'))} g prot</span>
-              <span class="macro-mini">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
-              <span class="macro-mini">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
+              <span class="total-big kcal">{fmt(totalKcal(c))} kcal</span>
+              <span class="total-big">{fmt(totalMacro(c, 'proteinas'))} g prot</span>
+              <span class="total-big">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
+              <span class="total-big">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
             </div>
-          {/if}
+            {#if !soloHoy}
+              <div class="fecha-picker">
+                <svg
+                  class="fecha-icon"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
+                <!-- Input REAL transparente que cubre toda la píldora: un tap
+                     directo abre el picker nativo (lo confiable en mobile).
+                     showPicker() es solo refuerzo para desktop; si falla, el
+                     tap igual funciona. -->
+                <input
+                  type="date"
+                  class="fecha-input"
+                  aria-label="Cambiar fecha de esta comida"
+                  value={c.fecha}
+                  onclick={(e) => {
+                    try {
+                      (e.currentTarget as HTMLInputElement).showPicker?.();
+                    } catch {
+                      /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
+                    }
+                  }}
+                  onchange={(e) =>
+                    cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
+                />
+              </div>
+            {/if}
+          </div>
 
           <div class="consumos">
             {#each c.consumos as x (x.id)}
@@ -574,22 +572,21 @@
   .card-head {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.8rem;
-    flex-wrap: wrap;
-  }
-
-  .card-head-left {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.45rem;
   }
 
   .card-label {
     font-weight: 700;
     font-size: 1.1rem;
     color: rgba(15, 23, 42, 0.95);
+  }
+
+  .card-sub {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 0.6rem;
   }
 
   .fecha-picker {
@@ -633,24 +630,27 @@
     cursor: pointer;
   }
 
-  .total-kcal {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.14);
-    border: 1px solid rgba(37, 99, 235, 0.35);
-    border-radius: 999px;
-    padding: 0.25rem 0.75rem;
-    white-space: nowrap;
-  }
-
   .card-totales {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.7rem;
-    padding-top: 0.7rem;
-    border-top: 1px dashed rgba(15, 23, 42, 0.15);
+    gap: 0.5rem;
+  }
+
+  .total-big {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: rgba(15, 23, 42, 0.85);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+    white-space: nowrap;
+  }
+
+  .total-big.kcal {
+    color: #1e3a8a;
+    background: rgba(37, 99, 235, 0.14);
+    border-color: rgba(37, 99, 235, 0.35);
   }
 
   .consumos {
