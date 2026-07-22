@@ -185,6 +185,10 @@
     return c.consumos.reduce((acc, x) => acc + (x.kilocalorias ?? 0), 0);
   }
 
+  function totalMacro(c: Comida, campo: 'proteinas' | 'carbohidratos' | 'grasas') {
+    return c.consumos.reduce((acc, x) => acc + (x[campo] ?? 0), 0);
+  }
+
   function toggleExpand(id: number) {
     if (expandedId === id && !editandoConsumo) {
       expandedId = null;
@@ -363,6 +367,14 @@
             </div>
             <span class="total-kcal">{fmt(totalKcal(c))} kcal</span>
           </div>
+
+          {#if c.consumos.length > 0}
+            <div class="card-totales">
+              <span class="macro-mini">Total: {fmt(totalMacro(c, 'proteinas'))} g prot</span>
+              <span class="macro-mini">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
+              <span class="macro-mini">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
+            </div>
+          {/if}
 
           <div class="consumos">
             {#each c.consumos as x (x.id)}
@@ -630,6 +642,15 @@
     border-radius: 999px;
     padding: 0.25rem 0.75rem;
     white-space: nowrap;
+  }
+
+  .card-totales {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed rgba(15, 23, 42, 0.15);
   }
 
   .consumos {
