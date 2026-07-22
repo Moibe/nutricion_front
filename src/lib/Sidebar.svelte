@@ -66,6 +66,10 @@
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Listado</span>
   </a>
+  <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
+    <span class="nav-ico" aria-hidden="true"></span>
+    <span>Calendario</span>
+  </a>
 {/snippet}
 
 <!-- Sidebar fijo de escritorio (oculto por completo en mobile). -->

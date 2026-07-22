@@ -4,8 +4,11 @@
   // (día más reciente primero) y dentro del día por su secuencia. El total
   // por comida se suma aquí en el cliente.
   //
-  // Reusado por dos rutas: /listado (todas) y /hoy (soloHoy=true → solo las
-  // del día en turno, en zona de CDMX, misma con la que el back sella la fecha).
+  // Reusado por tres rutas: /listado (todas), /hoy (soloHoy=true → solo las
+  // del día en turno, en zona de CDMX, misma con la que el back sella la
+  // fecha) y /calendario (fechaFiltro=<día elegido> → solo las de ese día,
+  // sin picker de fecha por tarjeta porque el día ya se elige en el
+  // calendario de arriba).
   //
   // "Editar" un consumo = reabrir su MISMA conversación de IA (mismo
   // conversation_id), precargada con el resultado ya guardado, para seguir
@@ -14,7 +17,10 @@
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
 
-  let { soloHoy = false }: { soloHoy?: boolean } = $props();
+  let {
+    soloHoy = false,
+    fechaFiltro = null
+  }: { soloHoy?: boolean; fechaFiltro?: string | null } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -91,12 +97,34 @@
   let eliminandoId = $state<number | null>(null);
 
   // En /hoy: solo las del día, ordenadas por secuencia (orden) — importante
-  // porque las recién creadas se agregan al final del array local.
+  // porque las recién creadas se agregan al final del array local. En
+  // /calendario: solo las del día elegido, mismo orden por secuencia.
   const comidasVisibles = $derived(
     soloHoy
       ? comidas.filter((c) => c.fecha === hoyISO).slice().sort((a, b) => a.orden - b.orden)
-      : comidas
+      : fechaFiltro
+        ? comidas.filter((c) => c.fecha === fechaFiltro).slice().sort((a, b) => a.orden - b.orden)
+        : comidas
   );
+
+  // Título del encabezado: contextual al día elegido cuando viene de /calendario.
+  const titulo = $derived(
+    fechaFiltro
+      ? `Comidas del ${formatoFechaLarga(fechaFiltro)}`
+      : soloHoy
+        ? 'Comidas de hoy'
+        : 'Comidas guardadas'
+  );
+
+  function formatoFechaLarga(fecha: string) {
+    const [y, m, d] = fecha.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
@@ -284,7 +312,7 @@
 </script>
 
 <section class="listado">
-  <h1>{soloHoy ? 'Comidas de hoy' : 'Comidas guardadas'}</h1>
+  <h1>{titulo}</h1>
 
   {#if errorAccion}
     <div class="error">⚠️ {errorAccion}</div>
@@ -314,7 +342,9 @@
   {:else if error}
     <div class="error">⚠️ {error}</div>
   {:else if comidasVisibles.length === 0}
-    {#if !soloHoy}
+    {#if fechaFiltro}
+      <p class="estado">No hay comidas guardadas para este día.</p>
+    {:else if !soloHoy}
       <p class="estado">
         Aún no hay comidas guardadas. Crea una en <a href="/hoy">Hoy</a> y agrégale un consumo.
       </p>
@@ -334,7 +364,7 @@
               <span class="total-big macro">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
               <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
             </div>
-            {#if !soloHoy}
+            {#if !soloHoy && !fechaFiltro}
               <div class="fecha-picker">
                 <svg
                   class="fecha-icon"
