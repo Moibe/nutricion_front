@@ -330,9 +330,9 @@
           <div class="card-sub">
             <div class="card-totales">
               <span class="total-big kcal">{fmt(totalKcal(c))} kcal</span>
-              <span class="total-big">{fmt(totalMacro(c, 'proteinas'))} g prot</span>
-              <span class="total-big">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
-              <span class="total-big">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
+              <span class="total-big macro">{fmt(totalMacro(c, 'proteinas'))} g prot</span>
+              <span class="total-big macro">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
+              <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
             </div>
             {#if !soloHoy}
               <div class="fecha-picker">
@@ -658,6 +658,11 @@
     border-radius: 999px;
     padding: 0.3rem 0.6rem;
     white-space: nowrap;
+  }
+
+  .total-big.macro {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.55rem;
   }
 
   .total-big.kcal {
