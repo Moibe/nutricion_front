@@ -70,10 +70,6 @@
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Listado</span>
   </a>
-  <a href="/tokens" class="nav-item" aria-current={isActive('/tokens') ? 'page' : undefined}>
-    <span class="nav-ico" aria-hidden="true"></span>
-    <span>Tokens</span>
-  </a>
 {/snippet}
 
 <!-- Sidebar fijo de escritorio (oculto por completo en mobile). -->

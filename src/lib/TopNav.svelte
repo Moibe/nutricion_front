@@ -5,8 +5,34 @@
   // relativa del cursor (-1..1 en cada eje) y se inclina la barra hacia él.
   // El botón de hamburguesa solo se ve en mobile (ver media query) — ahí
   // reemplaza al sidebar fijo, que en pantallas chicas es demasiado ancho.
+  // A la derecha va un indicador compacto del gasto de IA (costo total
+  // estimado), que enlaza a /tokens para el detalle.
+  import { env } from '$env/dynamic/public';
+  import { afterNavigate } from '$app/navigation';
+
   let { mobileOpen = false, toggleMobile }: { mobileOpen?: boolean; toggleMobile?: () => void } =
     $props();
+
+  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  let costoTotal = $state<number | null>(null);
+
+  const usd = (n: number) =>
+    '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+  async function cargarUso() {
+    try {
+      const res = await fetch(`${API_URL}/uso`);
+      if (!res.ok) return;
+      const d = await res.json();
+      costoTotal = typeof d?.total?.costo_usd === 'number' ? d.total.costo_usd : null;
+    } catch {
+      /* silencioso: es solo un indicador, no debe estorbar la navegación */
+    }
+  }
+
+  // afterNavigate corre al montar y en cada navegación (solo cliente), así el
+  // costo se refresca al moverse entre secciones sin recargar.
+  afterNavigate(() => cargarUso());
 
   let tiltX = $state(0);
   let tiltY = $state(0);
@@ -55,6 +81,27 @@
       />
     </svg>
     <span class="brand-title">Kcal</span>
+  </a>
+
+  <span class="spacer"></span>
+
+  <a href="/tokens" class="uso-pill" title="Consumo de tokens de IA (costo total estimado)">
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.5 9a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.8-2.5 2s1.1 1.8 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2A2.5 2.5 0 0 1 9.5 15" />
+      <path d="M12 6v1.5M12 16.5V18" />
+    </svg>
+    <span>{costoTotal !== null ? usd(costoTotal) : '—'}</span>
   </a>
 </header>
 
@@ -135,5 +182,30 @@
     font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: 0.005em;
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  .uso-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    color: #1e3a8a;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.18s ease;
+  }
+
+  .uso-pill:hover {
+    background: rgba(37, 99, 235, 0.2);
   }
 </style>
