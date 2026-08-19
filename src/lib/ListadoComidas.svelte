@@ -385,7 +385,15 @@
       {#each comidasVisibles as c (c.id)}
         <div class="card">
           <div class="card-head">
-            <span class="card-label">{etiqueta(c)}</span>
+            <div class="card-head-scroll">
+              <span class="card-label">{etiqueta(c)}</span>
+              <div class="card-totales">
+                <span class="total-big kcal">{fmt(totalKcal(c))} kcal</span>
+                <span class="total-big macro">{fmt(totalMacro(c, 'proteinas'))} g prot</span>
+                <span class="total-big macro">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
+                <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
+              </div>
+            </div>
             <button
               type="button"
               class="icon-btn card-borrar"
@@ -432,14 +440,8 @@
             </div>
           {/if}
 
-          <div class="card-sub">
-            <div class="card-totales">
-              <span class="total-big kcal">{fmt(totalKcal(c))} kcal</span>
-              <span class="total-big macro">{fmt(totalMacro(c, 'proteinas'))} g prot</span>
-              <span class="total-big macro">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
-              <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
-            </div>
-            {#if !soloHoy && !fechaFiltro}
+          {#if !soloHoy && !fechaFiltro}
+            <div class="card-sub">
               <div class="fecha-picker">
                 <svg
                   class="fecha-icon"
@@ -477,8 +479,8 @@
                     cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
                 />
               </div>
-            {/if}
-          </div>
+            </div>
+          {/if}
 
           <div class="consumos">
             {#each c.consumos as x (x.id)}
@@ -677,9 +679,27 @@
 
   .card-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 0.6rem;
+  }
+
+  /* Título + totales conviven en la misma línea que el bote; si no caben
+     (móvil angosto), esta parte se desliza en vez de bajar a otra línea —
+     el bote de borrar se queda fijo y siempre visible, fuera del scroll. */
+  .card-head-scroll {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .card-head-scroll::-webkit-scrollbar {
+    display: none;
   }
 
   .card-borrar {
@@ -687,28 +707,16 @@
   }
 
   .card-label {
+    flex-shrink: 0;
     font-weight: 700;
     font-size: 1.1rem;
     color: rgba(15, 23, 42, 0.95);
   }
 
-  /* nowrap + scroll horizontal en vez de flex-wrap: si no cabe en una línea
-     (totales + fecha), preferimos que se pueda deslizar de lado a que la
-     fecha se baje a una 2a línea y agrande la tarjeta. */
   .card-sub {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    justify-content: flex-end;
     margin-top: 0.6rem;
-  }
-
-  .card-sub::-webkit-scrollbar {
-    display: none;
   }
 
   .fecha-picker {
