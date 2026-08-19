@@ -8,16 +8,42 @@
 </script>
 
 <section class="calendario-page">
-  <Calendario seleccionada={fechaSeleccionada} onSeleccionar={(f) => (fechaSeleccionada = f)} />
-  <ListadoComidas fechaFiltro={fechaSeleccionada} />
+  <div class="calendario-col">
+    <Calendario seleccionada={fechaSeleccionada} onSeleccionar={(f) => (fechaSeleccionada = f)} />
+  </div>
+  <div class="resultado-col">
+    <ListadoComidas fechaFiltro={fechaSeleccionada} />
+  </div>
 </section>
 
 <style>
   .calendario-page {
     display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-    max-width: 640px;
+    align-items: flex-start;
+    gap: 1.5rem;
+    max-width: 1100px;
     margin: 0 auto;
+  }
+
+  .calendario-col {
+    flex: 0 0 380px;
+  }
+
+  .resultado-col {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Debajo de este ancho ya no cabe calendario + resultado lado a lado sin
+     apachurrar alguno de los dos — vuelve al apilado vertical original. */
+  @media (max-width: 860px) {
+    .calendario-page {
+      flex-direction: column;
+    }
+
+    .calendario-col {
+      flex-basis: auto;
+      width: 100%;
+    }
   }
 </style>
