@@ -45,6 +45,7 @@
     created_at: string;
     consumos: Consumo[];
   };
+  type CaloriasQuemadas = { fecha: string; calorias: number; fuente: string };
 
   // "Colación 1"/"Colación 2" comparten tipo "colacion"; el índice acá se manda
   // como `orden` (0..4) para poder ubicarlas en la secuencia real del día.
@@ -84,6 +85,7 @@
   const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
 
   let comidas = $state<Comida[]>([]);
+  let caloriasQuemadas = $state<CaloriasQuemadas[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
   // Error transitorio de una acción (cambiar fecha, eliminar, crear), SEPARADO
@@ -127,6 +129,14 @@
     carb: comidasVisibles.reduce((acc, c) => acc + totalMacro(c, 'carbohidratos'), 0),
     grasa: comidasVisibles.reduce((acc, c) => acc + totalMacro(c, 'grasas'), 0)
   });
+
+  // Calorías quemadas (Atajo de iOS → Salud). Best-effort y separado de
+  // `comidas`: si este fetch falla, simplemente no se muestra el dato, sin
+  // tumbar el resto de la página.
+  const diaActual = $derived(soloHoy ? hoyISO : fechaFiltro);
+  const filaQuemadasDia = $derived(
+    diaActual ? caloriasQuemadas.find((c) => c.fecha === diaActual) : undefined
+  );
 
   // Título del encabezado: contextual al día elegido cuando viene de /calendario.
   const titulo = $derived(
@@ -369,6 +379,17 @@
       }
     })();
   });
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/calorias-quemadas`);
+        if (res.ok) caloriasQuemadas = (await res.json()) as CaloriasQuemadas[];
+      } catch {
+        // Best-effort: si falla, simplemente no se muestra "quemadas hoy".
+      }
+    })();
+  });
 </script>
 
 {#snippet botonesCrear()}
@@ -411,6 +432,10 @@
         <span class="total-big macro">{fmt(totalDia.prot)} g prot</span>
         <span class="total-big macro">{fmt(totalDia.carb)} g carb</span>
         <span class="total-big macro">{fmt(totalDia.grasa)} g grasa</span>
+        {#if filaQuemadasDia}
+          <span class="total-big quemadas">{fmt(filaQuemadasDia.calorias)} kcal quemadas</span>
+          <span class="total-big neto">{fmt(totalDia.kcal - filaQuemadasDia.calorias)} kcal neto</span>
+        {/if}
       </div>
     </div>
   {/if}
@@ -861,6 +886,19 @@
     color: #1e3a8a;
     background: rgba(37, 99, 235, 0.14);
     border-color: rgba(37, 99, 235, 0.35);
+  }
+
+  /* Quemadas: tono naranja/ámbar, para distinguirlas de las consumidas (azul). */
+  .total-big.quemadas {
+    color: #9a3412;
+    background: rgba(234, 88, 12, 0.14);
+    border-color: rgba(234, 88, 12, 0.35);
+  }
+
+  .total-big.neto {
+    color: #166534;
+    background: rgba(22, 163, 74, 0.14);
+    border-color: rgba(22, 163, 74, 0.35);
   }
 
   .consumos {
