@@ -112,6 +112,18 @@
         : comidas
   );
 
+  // Total del día: solo tiene sentido cuando comidasVisibles ya está acotado
+  // a UN solo día (soloHoy o fechaFiltro) — en /listado (varios días mezclados)
+  // sumar todo sería engañoso, así que ahí no se muestra.
+  const mostrarTotalDia = $derived(soloHoy || fechaFiltro !== null);
+
+  const totalDia = $derived({
+    kcal: comidasVisibles.reduce((acc, c) => acc + totalKcal(c), 0),
+    prot: comidasVisibles.reduce((acc, c) => acc + totalMacro(c, 'proteinas'), 0),
+    carb: comidasVisibles.reduce((acc, c) => acc + totalMacro(c, 'carbohidratos'), 0),
+    grasa: comidasVisibles.reduce((acc, c) => acc + totalMacro(c, 'grasas'), 0)
+  });
+
   // Título del encabezado: contextual al día elegido cuando viene de /calendario.
   const titulo = $derived(
     fechaFiltro
@@ -365,6 +377,18 @@
           {creando === t.label ? '…' : t.label}
         </button>
       {/each}
+    </div>
+  {/if}
+
+  {#if mostrarTotalDia && !cargando && !error && comidasVisibles.length > 0}
+    <div class="total-dia">
+      <span class="total-dia-label">Total del día</span>
+      <div class="total-dia-scroll">
+        <span class="total-big kcal">{fmt(totalDia.kcal)} kcal</span>
+        <span class="total-big macro">{fmt(totalDia.prot)} g prot</span>
+        <span class="total-big macro">{fmt(totalDia.carb)} g carb</span>
+        <span class="total-big macro">{fmt(totalDia.grasa)} g grasa</span>
+      </div>
     </div>
   {/if}
 
@@ -711,6 +735,40 @@
     font-weight: 700;
     font-size: 1.1rem;
     color: rgba(15, 23, 42, 0.95);
+  }
+
+  /* Suma de todas las comidas visibles del día — fondo azul tenue para
+     distinguirla como el resumen de la página, no una tarjeta más. */
+  .total-dia {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 14px;
+    background: rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.25);
+  }
+
+  .total-dia-label {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1e3a8a;
+  }
+
+  .total-dia-scroll {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .total-dia-scroll::-webkit-scrollbar {
+    display: none;
   }
 
   .card-sub {
