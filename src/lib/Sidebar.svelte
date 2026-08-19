@@ -59,11 +59,37 @@
 
 {#snippet navLinks()}
   <a href="/hoy" class="nav-item" aria-current={isActive('/hoy') ? 'page' : undefined}>
-    <span class="nav-ico" aria-hidden="true"></span>
+    <svg
+      class="nav-ico"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path
+        d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+      />
+    </svg>
     <span>Hoy</span>
   </a>
   <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
-    <span class="nav-ico" aria-hidden="true"></span>
+    <svg
+      class="nav-ico"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
     <span>Calendario</span>
   </a>
 {/snippet}
@@ -193,10 +219,8 @@
   .nav-ico {
     width: 16px;
     height: 16px;
-    border-radius: 5px;
     flex-shrink: 0;
-    background: rgba(37, 99, 235, 0.35);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    color: rgba(37, 99, 235, 0.7);
   }
 
   .nav-item:hover {
@@ -211,7 +235,7 @@
   }
 
   .nav-item[aria-current='page'] .nav-ico {
-    background: #2563eb;
+    color: #2563eb;
   }
 
   .sidebar-footer {
