@@ -1,7 +1,7 @@
 <script lang="ts">
   // Monitor de gasto de IA: GET /uso de nutricion_api devuelve los tokens
-  // consumidos (total histórico y solo hoy) más el costo estimado en USD,
-  // calculado con los precios de gpt-4.1 (configurables en el back).
+  // consumidos (total histórico, del mes y solo hoy) más el costo estimado
+  // en USD, calculado con los precios de gpt-4.1 (configurables en el back).
   import { env } from '$env/dynamic/public';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -17,6 +17,7 @@
     precio_input_usd_por_1m: number;
     precio_output_usd_por_1m: number;
     total: Bloque;
+    mes: Bloque;
     hoy: Bloque;
   };
 
@@ -84,6 +85,7 @@
     <div class="error">⚠️ {error}</div>
   {:else if uso}
     {@render bloque('Hoy', uso.hoy)}
+    {@render bloque('Mes', uso.mes)}
     {@render bloque('Total', uso.total)}
 
     <p class="nota">
