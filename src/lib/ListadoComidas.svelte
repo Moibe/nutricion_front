@@ -4,11 +4,12 @@
   // (día más reciente primero) y dentro del día por su secuencia. El total
   // por comida se suma aquí en el cliente.
   //
-  // Reusado por tres rutas: /listado (todas), /hoy (soloHoy=true → solo las
-  // del día en turno, en zona de CDMX, misma con la que el back sella la
-  // fecha) y /calendario (fechaFiltro=<día elegido> → solo las de ese día,
-  // sin picker de fecha por tarjeta porque el día ya se elige en el
-  // calendario de arriba).
+  // Reusado por dos rutas: /hoy (soloHoy=true → solo las del día en turno,
+  // en zona de CDMX, misma con la que el back sella la fecha) y /calendario
+  // (fechaFiltro=<día elegido> → solo las de ese día). El picker de fecha por
+  // tarjeta se oculta solo en /hoy (que siempre es hoy); en /calendario sigue
+  // disponible para poder corregir una comida que se registró en el día
+  // equivocado.
   //
   // "Editar" un consumo = reabrir su MISMA conversación de IA (mismo
   // conversation_id), precargada con el resultado ya guardado, para seguir
@@ -113,8 +114,8 @@
   );
 
   // Total del día: solo tiene sentido cuando comidasVisibles ya está acotado
-  // a UN solo día (soloHoy o fechaFiltro) — en /listado (varios días mezclados)
-  // sumar todo sería engañoso, así que ahí no se muestra.
+  // a UN solo día (soloHoy o fechaFiltro) — sumar varios días mezclados sería
+  // engañoso.
   const mostrarTotalDia = $derived(soloHoy || fechaFiltro !== null);
 
   const totalDia = $derived({
@@ -399,10 +400,6 @@
   {:else if comidasVisibles.length === 0}
     {#if fechaFiltro}
       <p class="estado">No hay comidas guardadas para este día.</p>
-    {:else if !soloHoy}
-      <p class="estado">
-        Aún no hay comidas guardadas. Crea una en <a href="/hoy">Hoy</a> y agrégale un consumo.
-      </p>
     {/if}
   {:else}
     <div class="cards">
@@ -464,7 +461,7 @@
             </div>
           {/if}
 
-          {#if !soloHoy && !fechaFiltro}
+          {#if !soloHoy}
             <div class="card-sub">
               <div class="fecha-picker">
                 <svg
@@ -639,10 +636,6 @@
     margin: 0;
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.95rem;
-  }
-
-  .estado a {
-    color: #1e3a8a;
   }
 
   .hoy {

@@ -62,10 +62,6 @@
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Hoy</span>
   </a>
-  <a href="/listado" class="nav-item" aria-current={isActive('/listado') ? 'page' : undefined}>
-    <span class="nav-ico" aria-hidden="true"></span>
-    <span>Listado</span>
-  </a>
   <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
     <span class="nav-ico" aria-hidden="true"></span>
     <span>Calendario</span>

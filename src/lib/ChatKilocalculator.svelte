@@ -12,7 +12,7 @@
   // - LECTURA TOLERANTE a la transición del back: si aún manda el schema viejo
   //   (totales.kcal / proteinas_g / ...), igual lo leemos.
   // - EDITAR un consumo ya guardado = reabrir su MISMA conversación
-  //   (preConversationId + preResultado, típicamente desde /listado): se
+  //   (preConversationId + preResultado, típicamente desde /hoy o /calendario): se
   //   precarga como si fuera el último turno ya respondido, y al seguir
   //   chateando + Guardar, el back hace upsert por conversation_id — así que
   //   ACTUALIZA esa fila en vez de crear una nueva.
