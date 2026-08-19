@@ -150,6 +150,10 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       comidas = [...comidas, { ...data, consumos: [] }];
+      // Recién creada no tiene nada que registrar todavía: abre el chat de
+      // una vez en vez de dejar al usuario un clic extra en "+ Agregar consumo".
+      expandedId = data.id;
+      editandoConsumo = null;
     } catch (e) {
       errorAccion =
         e instanceof TypeError
