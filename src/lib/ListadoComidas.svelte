@@ -9,7 +9,10 @@
   // (fechaFiltro=<día elegido> → solo las de ese día). El picker de fecha por
   // tarjeta se oculta solo en /hoy (que siempre es hoy); en /calendario sigue
   // disponible para poder corregir una comida que se registró en el día
-  // equivocado.
+  // equivocado. Los botones de crear (Desayuno/Colación/Comida/Cena) también
+  // se comparten (snippet botonesCrear): en /hoy siempre visibles, en
+  // /calendario solo cuando el día elegido está vacío — ahí crean la comida
+  // con fecha=fechaFiltro en vez de la de hoy.
   //
   // "Editar" un consumo = reabrir su MISMA conversación de IA (mismo
   // conversation_id), precargada con el resultado ya guardado, para seguir
@@ -146,19 +149,32 @@
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
-  // Crear una comida (botones de /hoy). POST /comidas la crea con fecha de hoy;
-  // se agrega al listado local vacía (sin consumos) para poder abrir el chat y
-  // registrar el primero. Si nunca se le agrega un consumo, al recargar
-  // desaparece (GET /comidas solo trae comidas con al menos un consumo).
+  // Crear una comida (botones de /hoy, y de /calendario cuando el día elegido
+  // está vacío). POST /comidas la crea con fecha de hoy por default, o con
+  // fechaFiltro si venimos de /calendario (para poder llenar un día pasado,
+  // no solo hoy). Se agrega al listado local vacía (sin consumos) para poder
+  // abrir el chat y registrar el primero. Si nunca se le agrega un consumo,
+  // al recargar desaparece (GET /comidas solo trae comidas con al menos un
+  // consumo).
   async function crearComida(label: string, tipo: string, orden: number) {
     if (creando) return;
     creando = label;
     errorAccion = null;
     try {
+      // "Hoy" se recalcula AQUÍ, al momento del clic, en vez de reusar el
+      // hoyISO de arriba (fijo desde que se montó el componente): si dejas la
+      // pestaña de /calendario abierta cruzando medianoche CDMX sin recargar,
+      // fechaFiltro puede seguir apuntando al día que ERA hoy cuando lo
+      // elegiste. Solo mandamos `fecha` explícita si el día elegido es
+      // realmente distinto al de hoy en este instante; si coincide, se omite
+      // y el back decide con su propio reloj (mismo comportamiento seguro que
+      // ya tenía /hoy, que nunca manda fecha).
+      const hoyAhora = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+      const fecha = fechaFiltro && fechaFiltro !== hoyAhora ? fechaFiltro : null;
       const res = await fetch(`${API_URL}/comidas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, orden })
+        body: JSON.stringify({ tipo, orden, fecha })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -355,6 +371,21 @@
   });
 </script>
 
+{#snippet botonesCrear()}
+  <div class="botones">
+    {#each TIPOS as t, i (t.label)}
+      <button
+        type="button"
+        class="tipo-btn"
+        onclick={() => crearComida(t.label, t.tipo, i)}
+        disabled={creando !== null}
+      >
+        {creando === t.label ? '…' : t.label}
+      </button>
+    {/each}
+  </div>
+{/snippet}
+
 <section class="listado">
   <h1>{titulo}</h1>
 
@@ -362,23 +393,14 @@
     <div class="error">⚠️ {errorAccion}</div>
   {/if}
 
-  {#if soloHoy && !cargando && !error}
-    <!-- En /hoy, los botones para crear comidas están SIEMPRE (no solo cuando
-         está vacío), para poder agregar una 2ª comida del día. La fecha es
-         siempre hoy, por eso no hay calendario aquí. -->
-    <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
-    <div class="botones">
-      {#each TIPOS as t, i (t.label)}
-        <button
-          type="button"
-          class="tipo-btn"
-          onclick={() => crearComida(t.label, t.tipo, i)}
-          disabled={creando !== null}
-        >
-          {creando === t.label ? '…' : t.label}
-        </button>
-      {/each}
-    </div>
+  {#if (soloHoy || fechaFiltro) && !cargando && !error}
+    <!-- Los botones para crear comidas están SIEMPRE (no solo cuando el día
+         está vacío), para poder agregar una 2ª/3ª comida al mismo día — tanto
+         en /hoy como en /calendario (ahí crean en fechaFiltro, no en hoy). -->
+    {#if soloHoy}
+      <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+    {/if}
+    {@render botonesCrear()}
   {/if}
 
   {#if mostrarTotalDia && !cargando && !error && comidasVisibles.length > 0}
