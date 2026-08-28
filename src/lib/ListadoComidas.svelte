@@ -45,7 +45,9 @@
     created_at: string;
     consumos: Consumo[];
   };
-  type CaloriasQuemadas = { fecha: string; calorias: number; fuente: string };
+  // Métricas genéricas que manda el Atajo de iOS (calorías quemadas, peso,
+  // lo que se agregue después) — una fila por (fecha, tipo).
+  type MetricaIos = { fecha: string; tipo: string; valor: number; fuente: string };
 
   // "Colación 1"/"Colación 2" comparten tipo "colacion"; el índice acá se manda
   // como `orden` (0..4) para poder ubicarlas en la secuencia real del día.
@@ -85,7 +87,7 @@
   const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
 
   let comidas = $state<Comida[]>([]);
-  let caloriasQuemadas = $state<CaloriasQuemadas[]>([]);
+  let metricasIos = $state<MetricaIos[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
   // Error transitorio de una acción (cambiar fecha, eliminar, crear), SEPARADO
@@ -130,13 +132,15 @@
     grasa: comidasVisibles.reduce((acc, c) => acc + totalMacro(c, 'grasas'), 0)
   });
 
-  // Calorías quemadas (Atajo de iOS → Salud). Best-effort y separado de
-  // `comidas`: si este fetch falla, simplemente no se muestra el dato, sin
-  // tumbar el resto de la página.
+  // Métricas de iOS (Atajo → Salud): calorías quemadas y peso, y lo que se
+  // agregue después. Best-effort y separado de `comidas`: si este fetch
+  // falla, simplemente no se muestran, sin tumbar el resto de la página.
   const diaActual = $derived(soloHoy ? hoyISO : fechaFiltro);
-  const filaQuemadasDia = $derived(
-    diaActual ? caloriasQuemadas.find((c) => c.fecha === diaActual) : undefined
-  );
+  function metricaDelDia(tipo: string) {
+    return diaActual ? metricasIos.find((m) => m.fecha === diaActual && m.tipo === tipo) : undefined;
+  }
+  const filaQuemadasDia = $derived(metricaDelDia('calorias_quemadas'));
+  const filaPesoDia = $derived(metricaDelDia('peso'));
 
   // Título del encabezado: contextual al día elegido cuando viene de /calendario.
   const titulo = $derived(
@@ -383,10 +387,10 @@
   $effect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/calorias-quemadas`);
-        if (res.ok) caloriasQuemadas = (await res.json()) as CaloriasQuemadas[];
+        const res = await fetch(`${API_URL}/metricas-ios`);
+        if (res.ok) metricasIos = (await res.json()) as MetricaIos[];
       } catch {
-        // Best-effort: si falla, simplemente no se muestra "quemadas hoy".
+        // Best-effort: si falla, simplemente no se muestran quemadas/peso.
       }
     })();
   });
@@ -433,11 +437,15 @@
         <span class="total-big macro">{fmt(totalDia.carb)} g carb</span>
         <span class="total-big macro">{fmt(totalDia.grasa)} g grasa</span>
         {#if filaQuemadasDia}
-          <span class="total-big quemadas">{fmt(filaQuemadasDia.calorias)} kcal quemadas</span>
-          <span class="total-big neto">{fmt(totalDia.kcal - filaQuemadasDia.calorias)} kcal neto</span>
+          <span class="total-big quemadas">{fmt(filaQuemadasDia.valor)} kcal quemadas</span>
+          <span class="total-big neto">{fmt(totalDia.kcal - filaQuemadasDia.valor)} kcal neto</span>
         {/if}
       </div>
     </div>
+  {/if}
+
+  {#if mostrarTotalDia && !cargando && !error && filaPesoDia}
+    <p class="peso-dia">Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong></p>
   {/if}
 
   {#if cargando}
@@ -692,6 +700,16 @@
   }
 
   .hoy strong {
+    color: rgba(15, 23, 42, 0.9);
+  }
+
+  .peso-dia {
+    margin: 0;
+    font-size: 0.95rem;
+    color: rgba(15, 23, 42, 0.65);
+  }
+
+  .peso-dia strong {
     color: rgba(15, 23, 42, 0.9);
   }
 
