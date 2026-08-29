@@ -1,9 +1,12 @@
 <script lang="ts">
-  // Captura manual de calorías quemadas del día (complemento al Atajo de
-  // iOS): un campo + botón Guardar que hacen upsert directo a POST
-  // /metricas-ios (tipo=calorias_quemadas), el mismo "cachador" genérico que
-  // usa el Atajo. Si ya hay un valor guardado hoy (por el Atajo o por esta
-  // misma página antes), se precarga en el campo en vez de arrancar vacío.
+  // Captura manual de ejercicio del día (complemento al Atajo de iOS): dos
+  // campos (concepto + calorías quemadas) + botón Guardar que hacen upsert
+  // directo a POST /metricas-ios (tipo=calorias_quemadas), el mismo
+  // "cachador" genérico que usa el Atajo. El Atajo solo manda el número
+  // (nunca concepto — no tiene forma de describir el ejercicio), y el back
+  // conserva el concepto ya guardado si una llamada posterior no lo manda
+  // (COALESCE), así que el Atajo actualizando el total no te borra lo que
+  // escribiste aquí. Si ya hay datos guardados hoy, se precargan.
   import { env } from '$env/dynamic/public';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -19,20 +22,38 @@
   });
   const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
 
+  let concepto = $state('');
   let calorias = $state('');
   let cargando = $state(true);
   let guardando = $state(false);
   let guardado = $state(false);
   let error = $state<string | null>(null);
 
+  function extraerError(detalle: unknown, fallback: string): string {
+    const d = (detalle as { detail?: unknown } | null)?.detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d) && d[0] && typeof d[0] === 'object' && 'msg' in d[0]) {
+      return String((d[0] as { msg: unknown }).msg);
+    }
+    return fallback;
+  }
+
   $effect(() => {
     (async () => {
       try {
         const res = await fetch(`${API_URL}/metricas-ios`);
         if (res.ok) {
-          const datos = (await res.json()) as { fecha: string; tipo: string; valor: number }[];
+          const datos = (await res.json()) as {
+            fecha: string;
+            tipo: string;
+            valor: number;
+            concepto: string | null;
+          }[];
           const deHoy = datos.find((m) => m.fecha === hoyISO && m.tipo === 'calorias_quemadas');
-          if (deHoy) calorias = String(deHoy.valor);
+          if (deHoy) {
+            calorias = String(deHoy.valor);
+            concepto = deHoy.concepto ?? '';
+          }
         }
       } catch {
         // Si falla la carga, simplemente arranca vacío — no bloquea poder capturar.
@@ -43,6 +64,10 @@
   });
 
   async function guardar() {
+    if (!concepto.trim()) {
+      error = 'Describe brevemente el ejercicio (ej. "Correr 5km").';
+      return;
+    }
     // OJO: bind:value en <input type="number"> guarda un NÚMERO, no texto —
     // "!calorias" trataría un 0 legítimo como vacío (0 es falsy en JS). Por
     // eso se checa "=== ''" para vacío de verdad, aparte de validar el número.
@@ -63,11 +88,17 @@
       const res = await fetch(`${API_URL}/metricas-ios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: 'calorias_quemadas', fecha: hoyISO, valor, fuente: 'manual' })
+        body: JSON.stringify({
+          tipo: 'calorias_quemadas',
+          fecha: hoyISO,
+          valor,
+          fuente: 'manual',
+          concepto: concepto.trim()
+        })
       });
       if (!res.ok) {
         const detalle = await res.json().catch(() => null);
-        throw new Error(detalle?.detail ?? `HTTP ${res.status}`);
+        throw new Error(extraerError(detalle, `HTTP ${res.status}`));
       }
       guardado = true;
     } catch (e) {
@@ -95,7 +126,17 @@
     <p class="estado">Cargando…</p>
   {:else}
     <div class="card">
-      <label for="calorias-input">Calorías quemadas hoy (kcal)</label>
+      <label for="concepto-input">Concepto</label>
+      <input
+        id="concepto-input"
+        type="text"
+        placeholder="Ej. Correr 5km"
+        bind:value={concepto}
+        oninput={() => (guardado = false)}
+        onkeydown={(e) => e.key === 'Enter' && guardar()}
+      />
+
+      <label for="calorias-input">Calorías quemadas (kcal)</label>
       <div class="fila-input">
         <input
           id="calorias-input"
