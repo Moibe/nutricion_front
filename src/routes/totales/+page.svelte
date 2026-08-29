@@ -33,15 +33,15 @@
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
-  function formatoFechaLarga(fecha: string) {
+  // Corta (no el formato largo con día de semana): en una tabla, cada
+  // renglón ya deja claro que es un día — no hace falta repetirlo.
+  function formatoFecha(fecha: string) {
     const [y, m, d] = fecha.split('-').map(Number);
-    const raw = new Date(y, m - 1, d).toLocaleDateString('es-MX', {
-      weekday: 'long',
+    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
       day: 'numeric',
-      month: 'long',
+      month: 'short',
       year: 'numeric'
     });
-    return raw.charAt(0).toUpperCase() + raw.slice(1);
   }
 
   // Edad AL DÍA de esa fila (no la de hoy) — un día de hace tiempo debe usar
@@ -140,27 +140,45 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados en ningún día.</p>
   {:else}
-    <div class="filas">
-      {#each filas as f (f.fecha)}
-        <div class="dia-card" class:hoy={f.fecha === hoyISO}>
-          {#if f.fecha === hoyISO}
-            <span class="hoy-flecha hoy-flecha-in" aria-hidden="true">»</span>
-            <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
-          {/if}
-          <span class="dia-fecha">{formatoFechaLarga(f.fecha)}</span>
-          <div class="dia-scroll">
-            <span class="pill peso">{f.peso !== null ? `${fmt(f.peso)} kg` : '— kg'}</span>
-            <span class="pill basal"
-              >{f.kcalBasal !== null ? `${fmt(f.kcalBasal)} kcal basal` : '— kcal basal'}</span
-            >
-            <span class="pill comidas">{fmt(f.kcalComidas)} kcal comidas</span>
-            <span class="pill ejercicio">{fmt(f.kcalEjercicio)} kcal ejercicio</span>
-            <span class="pill total" class:superavit={f.total !== null && f.total >= 0}>
-              {f.total !== null ? `${fmt(f.total)} kcal total` : '— kcal total'}
-            </span>
-          </div>
-        </div>
-      {/each}
+    <div class="tabla-scroll">
+      <table class="tabla-totales">
+        <thead>
+          <tr>
+            <th class="col-fecha">Fecha</th>
+            <th class="col-peso">Peso (kg)</th>
+            <th class="col-basal">Basal (kcal)</th>
+            <th class="col-comidas">Comidas (kcal)</th>
+            <th class="col-ejercicio">Ejercicio (kcal)</th>
+            <th class="col-total">Total (kcal)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each filas as f (f.fecha)}
+            <tr class:hoy={f.fecha === hoyISO}>
+              <td class="col-fecha">
+                {#if f.fecha === hoyISO}
+                  <span class="hoy-flecha hoy-flecha-in" aria-hidden="true">»</span>
+                {/if}
+                {formatoFecha(f.fecha)}
+                {#if f.fecha === hoyISO}
+                  <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
+                {/if}
+              </td>
+              <td class="col-peso">{f.peso !== null ? fmt(f.peso) : '—'}</td>
+              <td class="col-basal">{f.kcalBasal !== null ? fmt(f.kcalBasal) : '—'}</td>
+              <td class="col-comidas">{fmt(f.kcalComidas)}</td>
+              <td class="col-ejercicio">{fmt(f.kcalEjercicio)}</td>
+              <td
+                class="col-total"
+                class:superavit={f.total !== null && f.total >= 0}
+                class:deficit={f.total !== null && f.total < 0}
+              >
+                {f.total !== null ? fmt(f.total) : '—'}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
   {/if}
 </section>
@@ -208,62 +226,115 @@
     font-weight: 600;
   }
 
-  .filas {
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-  }
-
-  .dia-card {
-    position: relative;
-    padding: 0.9rem 1.1rem;
-    border-radius: 14px;
+  /* Tabla tipo Excel: columnas y filas rectas en vez de tarjetas con chips. */
+  .tabla-scroll {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
     background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
   }
 
-  .dia-card.hoy {
-    background: rgba(245, 158, 11, 0.08);
-    border-color: rgba(245, 158, 11, 0.35);
+  .tabla-totales {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .tabla-totales th,
+  .tabla-totales td {
+    padding: 0.55rem 0.9rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    text-align: right;
+  }
+
+  .tabla-totales th:last-child,
+  .tabla-totales td:last-child {
+    border-right: none;
+  }
+
+  .tabla-totales tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .col-fecha {
+    text-align: left;
+  }
+
+  .tabla-totales thead th {
+    background: rgba(15, 23, 42, 0.04);
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .tabla-totales thead th.col-peso {
+    color: #6d28d9;
+  }
+
+  .tabla-totales thead th.col-comidas {
+    color: #1e3a8a;
+  }
+
+  .tabla-totales thead th.col-ejercicio {
+    color: #9a3412;
+  }
+
+  .tabla-totales tbody tr:nth-child(even) {
+    background: rgba(15, 23, 42, 0.02);
+  }
+
+  .tabla-totales tbody tr.hoy {
+    background: rgba(245, 158, 11, 0.12);
+  }
+
+  .tabla-totales tbody td {
+    font-variant-numeric: tabular-nums;
+    color: rgba(15, 23, 42, 0.85);
+  }
+
+  .col-total.superavit {
+    color: #9a3412;
+    font-weight: 700;
+  }
+
+  .col-total.deficit {
+    color: #166534;
+    font-weight: 700;
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
-     glifo que pulsa acercándose a lo que señala. Acá van dos, AFUERA de la
-     tarjeta completa (no solo de la fecha), apuntando los dos hacia el
-     centro de la tarjeta de hoy. */
+     glifo que pulsa acercándose a lo que señala. Uno de cada lado de la
+     fecha de hoy, apuntando los dos hacia el centro. */
   .hoy-flecha {
-    position: absolute;
-    top: 50%;
     display: inline-flex;
     color: #f59e0b;
-    font-size: 1.4rem;
     font-weight: 900;
-    line-height: 1;
     text-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
     user-select: none;
   }
 
   .hoy-flecha-in {
-    left: -1.5rem;
+    margin-right: 0.25rem;
     animation: hoy-flecha-in-pulso 1.2s ease-in-out infinite;
   }
 
   .hoy-flecha-out {
-    right: -1.5rem;
+    margin-left: 0.25rem;
     animation: hoy-flecha-out-pulso 1.2s ease-in-out infinite;
   }
 
   @keyframes hoy-flecha-in-pulso {
     0%,
     100% {
-      transform: translateY(-50%) translateX(0);
+      transform: translateX(0);
       opacity: 0.8;
     }
     50% {
-      transform: translateY(-50%) translateX(4px);
+      transform: translateX(3px);
       opacity: 1;
     }
   }
@@ -271,83 +342,13 @@
   @keyframes hoy-flecha-out-pulso {
     0%,
     100% {
-      transform: translateY(-50%) translateX(0);
+      transform: translateX(0);
       opacity: 0.8;
     }
     50% {
-      transform: translateY(-50%) translateX(-4px);
+      transform: translateX(-3px);
       opacity: 1;
     }
-  }
-
-  .dia-fecha {
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: rgba(15, 23, 42, 0.85);
-  }
-
-  /* nowrap + scroll horizontal (mismo patrón que ListadoComidas): en vez de
-     que las píldoras se bajen a una 2a línea y agranden la tarjeta. */
-  .dia-scroll {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    gap: 0.4rem;
-  }
-
-  .dia-scroll::-webkit-scrollbar {
-    display: none;
-  }
-
-  .pill {
-    flex-shrink: 0;
-    font-weight: 700;
-    font-size: 0.85rem;
-    border-radius: 999px;
-    padding: 0.3rem 0.65rem;
-    white-space: nowrap;
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    color: rgba(15, 23, 42, 0.75);
-  }
-
-  .pill.peso {
-    color: #6d28d9;
-    background: rgba(124, 58, 237, 0.12);
-    border-color: rgba(124, 58, 237, 0.3);
-  }
-
-  .pill.basal {
-    color: rgba(15, 23, 42, 0.7);
-    background: rgba(15, 23, 42, 0.06);
-    border-color: rgba(15, 23, 42, 0.15);
-  }
-
-  .pill.comidas {
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.12);
-    border-color: rgba(37, 99, 235, 0.3);
-  }
-
-  .pill.ejercicio {
-    color: #9a3412;
-    background: rgba(234, 88, 12, 0.12);
-    border-color: rgba(234, 88, 12, 0.3);
-  }
-
-  .pill.total {
-    color: #166534;
-    background: rgba(22, 163, 74, 0.14);
-    border-color: rgba(22, 163, 74, 0.35);
-  }
-
-  .pill.total.superavit {
-    color: #9a3412;
-    background: rgba(234, 88, 12, 0.14);
-    border-color: rgba(234, 88, 12, 0.35);
   }
 
   .error {
