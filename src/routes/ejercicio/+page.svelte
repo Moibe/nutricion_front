@@ -235,10 +235,14 @@
   }
 
   /* El input global trae min-width: 140px (ver más abajo) — se pisa aquí
-     para que este campo sí pueda quedar angosto como se pidió. Sin flechitas
-     de spinner: en un campo tan angosto solo apachurran el número contra el
-     botón de al lado. */
+     para que este campo sí pueda quedar angosto como se pidió. box-sizing:
+     border-box es clave: sin él, width:100px + el padding/borde del input
+     global suman ~130px reales, se salen de este contenedor de 100px y se
+     comen el espacio del botón de al lado (el bug que se vio en producción).
+     Sin flechitas de spinner tampoco: en un campo tan angosto solo
+     apachurran el número. */
   .campo-calorias input {
+    box-sizing: border-box;
     min-width: 0;
     width: 100px;
     appearance: textfield;
