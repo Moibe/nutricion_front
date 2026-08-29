@@ -11,24 +11,53 @@
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX), para
   // marcar el renglón de hoy con las flechitas animadas.
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+  const [hoyAnio, hoyMesNum] = hoyISO.split('-').map(Number);
+
+  // Paginado por mes (mismo patrón que /calendario): sin esto, cada carga
+  // traía TODO el historial de comidas/métricas para armar una tabla que solo
+  // crece. anio/mes acotan qué mes se pide al back vía ?desde=&hasta=.
+  const MESES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+
+  let anio = $state(hoyAnio);
+  let mes = $state(hoyMesNum - 1); // 0-indexado, igual que Calendario.svelte
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const desde = $derived(`${anio}-${pad(mes + 1)}-01`);
+  const hasta = $derived.by(() => {
+    const ultimoDia = new Date(anio, mes + 1, 0).getDate();
+    return `${anio}-${pad(mes + 1)}-${pad(ultimoDia)}`;
+  });
+
+  function mesAnterior() {
+    if (mes === 0) {
+      mes = 11;
+      anio -= 1;
+    } else {
+      mes -= 1;
+    }
+  }
+
+  function mesSiguiente() {
+    if (mes === 11) {
+      mes = 0;
+      anio += 1;
+    } else {
+      mes += 1;
+    }
+  }
 
   type Consumo = { kilocalorias: number | null };
   type Comida = { fecha: string; consumos: Consumo[] };
   type MetricaIos = { fecha: string; tipo: string; valor: number };
   type Perfil = { fecha_nacimiento: string; estatura_cm: number; sexo: 'hombre' | 'mujer' };
 
-  type Fila = {
-    fecha: string;
-    peso: number | null;
-    kcalBasal: number | null;
-    kcalComidas: number;
-    kcalEjercicio: number;
-    total: number | null;
-  };
-
   let cargando = $state(true);
   let error = $state<string | null>(null);
-  let filas = $state<Fila[]>([]);
+  let comidasRaw = $state<Comida[]>([]);
+  let metricasRaw = $state<MetricaIos[]>([]);
   let perfil = $state<Perfil | null>(null);
 
   // Posición vertical (px, relativa a .tabla-wrap) de la fila de hoy, para
@@ -76,58 +105,82 @@
     return edad;
   }
 
+  // Derivado (no calculado inline en el fetch) para que se recalcule solo si
+  // perfil llega DESPUÉS de comidas/métricas — perfil se carga en un efecto
+  // aparte (no depende del mes), así que su orden de llegada no está
+  // garantizado respecto al de comidas/métricas.
+  const filas = $derived.by(() => {
+    const kcalComidasPorDia = new Map<string, number>();
+    for (const c of comidasRaw) {
+      const totalComida = c.consumos.reduce((acc, x) => acc + (x.kilocalorias ?? 0), 0);
+      kcalComidasPorDia.set(c.fecha, (kcalComidasPorDia.get(c.fecha) ?? 0) + totalComida);
+    }
+
+    const pesoPorDia = new Map<string, number>();
+    const ejercicioPorDia = new Map<string, number>();
+    for (const m of metricasRaw) {
+      if (m.tipo === 'peso') pesoPorDia.set(m.fecha, m.valor);
+      if (m.tipo === 'calorias_quemadas') ejercicioPorDia.set(m.fecha, m.valor);
+    }
+
+    const todasLasFechas = new Set([
+      ...kcalComidasPorDia.keys(),
+      ...pesoPorDia.keys(),
+      ...ejercicioPorDia.keys()
+    ]);
+
+    return [...todasLasFechas]
+      .sort((a, b) => b.localeCompare(a))
+      .map((fecha) => {
+        const peso = pesoPorDia.get(fecha) ?? null;
+        const kcalComidas = kcalComidasPorDia.get(fecha) ?? 0;
+        const kcalEjercicio = ejercicioPorDia.get(fecha) ?? 0;
+
+        let kcalBasal: number | null = null;
+        if (peso !== null && perfil) {
+          const edad = calcularEdad(perfil.fecha_nacimiento, fecha);
+          const base = 10 * peso + 6.25 * perfil.estatura_cm - 5 * edad;
+          kcalBasal = perfil.sexo === 'hombre' ? base + 5 : base - 161;
+        }
+
+        const total = kcalBasal !== null ? kcalComidas - (kcalBasal + kcalEjercicio) : null;
+
+        return { fecha, peso, kcalBasal, kcalComidas, kcalEjercicio, total };
+      });
+  });
+
+  // Perfil es un singleton (no depende del mes en pantalla) — se carga una
+  // sola vez, aparte del efecto que sí se repite cada vez que cambias de mes.
   $effect(() => {
     (async () => {
       try {
-        const [resComidas, resMetricas, resPerfil] = await Promise.all([
-          fetch(`${API_URL}/comidas`),
-          fetch(`${API_URL}/metricas-ios`),
-          fetch(`${API_URL}/perfil`)
+        const res = await fetch(`${API_URL}/perfil`);
+        perfil = res.ok ? ((await res.json()) as Perfil | null) : null;
+      } catch {
+        // Best-effort: si falla, el aviso de "completa tu perfil" ya cubre
+        // el caso de basal/total no disponibles.
+      }
+    })();
+  });
+
+  $effect(() => {
+    // Leídos SÍNCRONO (antes del IIFE) para que el effect quede suscrito a
+    // desde/hasta y vuelva a correr al navegar de mes.
+    const d = desde;
+    const h = hasta;
+    cargando = true;
+    error = null;
+    (async () => {
+      try {
+        const [resComidas, resMetricas] = await Promise.all([
+          fetch(`${API_URL}/comidas?desde=${d}&hasta=${h}`),
+          fetch(`${API_URL}/metricas-ios?desde=${d}&hasta=${h}`)
         ]);
         if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
         if (!resMetricas.ok) throw new Error(`HTTP ${resMetricas.status}`);
 
-        const comidas = (await resComidas.json()) as Comida[];
-        const metricas = (await resMetricas.json()) as MetricaIos[];
-        perfil = resPerfil.ok ? ((await resPerfil.json()) as Perfil | null) : null;
-
-        const kcalComidasPorDia = new Map<string, number>();
-        for (const c of comidas) {
-          const totalComida = c.consumos.reduce((acc, x) => acc + (x.kilocalorias ?? 0), 0);
-          kcalComidasPorDia.set(c.fecha, (kcalComidasPorDia.get(c.fecha) ?? 0) + totalComida);
-        }
-
-        const pesoPorDia = new Map<string, number>();
-        const ejercicioPorDia = new Map<string, number>();
-        for (const m of metricas) {
-          if (m.tipo === 'peso') pesoPorDia.set(m.fecha, m.valor);
-          if (m.tipo === 'calorias_quemadas') ejercicioPorDia.set(m.fecha, m.valor);
-        }
-
-        const todasLasFechas = new Set([
-          ...kcalComidasPorDia.keys(),
-          ...pesoPorDia.keys(),
-          ...ejercicioPorDia.keys()
-        ]);
-
-        filas = [...todasLasFechas]
-          .sort((a, b) => b.localeCompare(a))
-          .map((fecha) => {
-            const peso = pesoPorDia.get(fecha) ?? null;
-            const kcalComidas = kcalComidasPorDia.get(fecha) ?? 0;
-            const kcalEjercicio = ejercicioPorDia.get(fecha) ?? 0;
-
-            let kcalBasal: number | null = null;
-            if (peso !== null && perfil) {
-              const edad = calcularEdad(perfil.fecha_nacimiento, fecha);
-              const base = 10 * peso + 6.25 * perfil.estatura_cm - 5 * edad;
-              kcalBasal = perfil.sexo === 'hombre' ? base + 5 : base - 161;
-            }
-
-            const total = kcalBasal !== null ? kcalComidas - (kcalBasal + kcalEjercicio) : null;
-
-            return { fecha, peso, kcalBasal, kcalComidas, kcalEjercicio, total };
-          });
+        comidasRaw = (await resComidas.json()) as Comida[];
+        metricasRaw = (await resMetricas.json()) as MetricaIos[];
       } catch (e) {
         error =
           e instanceof TypeError
@@ -146,6 +199,12 @@
   <h1>Registro Diario</h1>
   <p class="sub">Consumidas − (basales + ejercitadas) = superávit o déficit del día.</p>
 
+  <div class="mes-header">
+    <button type="button" class="mes-nav" onclick={mesAnterior} aria-label="Mes anterior">‹</button>
+    <span class="mes-titulo">{MESES[mes]} {anio}</span>
+    <button type="button" class="mes-nav" onclick={mesSiguiente} aria-label="Mes siguiente">›</button>
+  </div>
+
   {#if error}
     <div class="error">⚠️ {error}</div>
   {/if}
@@ -160,7 +219,7 @@
   {#if cargando}
     <p class="estado">Cargando…</p>
   {:else if filas.length === 0}
-    <p class="estado">Aún no hay datos guardados en ningún día.</p>
+    <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
     <div class="tabla-wrap" bind:this={tablaWrapEl}>
       {#if flechaTop !== null}
@@ -245,6 +304,40 @@
     margin: 0;
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.95rem;
+  }
+
+  /* Mismo lenguaje visual que el header de mes de Calendario.svelte, para
+     que navegar por mes se sienta igual en ambas pantallas. */
+  .mes-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .mes-titulo {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: rgba(15, 23, 42, 0.95);
+    min-width: 9rem;
+    text-align: center;
+  }
+
+  .mes-nav {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 8px;
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #1e3a8a;
+    cursor: pointer;
+  }
+
+  .mes-nav:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(37, 99, 235, 0.4);
   }
 
   .aviso {
