@@ -60,7 +60,7 @@
 {#snippet navLinks()}
   <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
     <svg
-      class="nav-ico"
+      class="nav-ico calendario"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -76,7 +76,7 @@
   </a>
   <a href="/peso" class="nav-item" aria-current={isActive('/peso') ? 'page' : undefined}>
     <svg
-      class="nav-ico"
+      class="nav-ico peso"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -93,7 +93,7 @@
   </a>
   <a href="/hoy" class="nav-item" aria-current={isActive('/hoy') ? 'page' : undefined}>
     <svg
-      class="nav-ico"
+      class="nav-ico comida"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -109,7 +109,7 @@
   </a>
   <a href="/ejercicio" class="nav-item" aria-current={isActive('/ejercicio') ? 'page' : undefined}>
     <svg
-      class="nav-ico"
+      class="nav-ico ejercicio"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -250,7 +250,24 @@
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-    color: rgba(37, 99, 235, 0.7);
+  }
+
+  /* Mismo color por categoría que usan los iconitos del calendario, para que
+     un vistazo al sidebar ya te entrene qué color es cuál ahí también. */
+  .nav-ico.calendario {
+    color: rgba(8, 145, 178, 0.75);
+  }
+
+  .nav-ico.comida {
+    color: rgba(37, 99, 235, 0.75);
+  }
+
+  .nav-ico.ejercicio {
+    color: rgba(234, 88, 12, 0.75);
+  }
+
+  .nav-ico.peso {
+    color: rgba(124, 58, 237, 0.75);
   }
 
   .nav-item:hover {
@@ -264,8 +281,20 @@
     border-color: rgba(37, 99, 235, 0.4);
   }
 
-  .nav-item[aria-current='page'] .nav-ico {
+  .nav-item[aria-current='page'] .nav-ico.calendario {
+    color: #0891b2;
+  }
+
+  .nav-item[aria-current='page'] .nav-ico.comida {
     color: #2563eb;
+  }
+
+  .nav-item[aria-current='page'] .nav-ico.ejercicio {
+    color: #ea580c;
+  }
+
+  .nav-item[aria-current='page'] .nav-ico.peso {
+    color: #7c3aed;
   }
 
   .sidebar-footer {
