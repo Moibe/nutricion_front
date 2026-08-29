@@ -122,6 +122,22 @@
     </svg>
     <span>Ejercicio Hoy</span>
   </a>
+  <a href="/totales" class="nav-item" aria-current={isActive('/totales') ? 'page' : undefined}>
+    <svg
+      class="nav-ico totales"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 10h18M9 10v10" />
+    </svg>
+    <span>Totales</span>
+  </a>
 {/snippet}
 
 <!-- Sidebar fijo de escritorio (oculto por completo en mobile). -->
@@ -270,6 +286,10 @@
     color: rgba(124, 58, 237, 0.75);
   }
 
+  .nav-ico.totales {
+    color: rgba(219, 39, 119, 0.75);
+  }
+
   .nav-item:hover {
     background: rgba(255, 255, 255, 0.6);
     border-color: rgba(15, 23, 42, 0.1);
@@ -295,6 +315,10 @@
 
   .nav-item[aria-current='page'] .nav-ico.peso {
     color: #7c3aed;
+  }
+
+  .nav-item[aria-current='page'] .nav-ico.totales {
+    color: #db2777;
   }
 
   .sidebar-footer {
