@@ -215,7 +215,7 @@
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: 0.6rem;
+    gap: 0.9rem;
   }
 
   .campo {
@@ -231,14 +231,24 @@
   }
 
   .campo-calorias {
-    flex: 0 0 90px;
+    flex: 0 0 100px;
   }
 
   /* El input global trae min-width: 140px (ver más abajo) — se pisa aquí
-     para que este campo sí pueda quedar angosto como se pidió. */
+     para que este campo sí pueda quedar angosto como se pidió. Sin flechitas
+     de spinner: en un campo tan angosto solo apachurran el número contra el
+     botón de al lado. */
   .campo-calorias input {
     min-width: 0;
-    width: 90px;
+    width: 100px;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .campo-calorias input::-webkit-outer-spin-button,
+  .campo-calorias input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 
   .fila-input > button {
