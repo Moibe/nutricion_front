@@ -102,12 +102,25 @@
       stroke-linejoin="round"
       aria-hidden="true"
     >
+      <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="4" />
-      <path
-        d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-      />
     </svg>
     <span>Alimentación Hoy</span>
+  </a>
+  <a href="/ejercicio" class="nav-item" aria-current={isActive('/ejercicio') ? 'page' : undefined}>
+    <svg
+      class="nav-ico"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12h4l2-7 4 14 2-7h6" />
+    </svg>
+    <span>Ejercicio Hoy</span>
   </a>
 {/snippet}
 

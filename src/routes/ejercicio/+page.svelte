@@ -1,9 +1,9 @@
 <script lang="ts">
-  // Captura manual del peso del día (complemento al Atajo de iOS): un campo
-  // + botón Guardar que hacen upsert directo a POST /metricas-ios
-  // (tipo=peso), el mismo "cachador" genérico que usa el Atajo. Si ya hay un
-  // valor guardado hoy (por el Atajo o por esta misma página antes), se
-  // precarga en el campo en vez de arrancar vacío.
+  // Captura manual de calorías quemadas del día (complemento al Atajo de
+  // iOS): un campo + botón Guardar que hacen upsert directo a POST
+  // /metricas-ios (tipo=calorias_quemadas), el mismo "cachador" genérico que
+  // usa el Atajo. Si ya hay un valor guardado hoy (por el Atajo o por esta
+  // misma página antes), se precarga en el campo en vez de arrancar vacío.
   import { env } from '$env/dynamic/public';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -19,7 +19,7 @@
   });
   const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
 
-  let peso = $state('');
+  let calorias = $state('');
   let cargando = $state(true);
   let guardando = $state(false);
   let guardado = $state(false);
@@ -31,8 +31,8 @@
         const res = await fetch(`${API_URL}/metricas-ios`);
         if (res.ok) {
           const datos = (await res.json()) as { fecha: string; tipo: string; valor: number }[];
-          const deHoy = datos.find((m) => m.fecha === hoyISO && m.tipo === 'peso');
-          if (deHoy) peso = String(deHoy.valor);
+          const deHoy = datos.find((m) => m.fecha === hoyISO && m.tipo === 'calorias_quemadas');
+          if (deHoy) calorias = String(deHoy.valor);
         }
       } catch {
         // Si falla la carga, simplemente arranca vacío — no bloquea poder capturar.
@@ -43,16 +43,18 @@
   });
 
   async function guardar() {
-    // bind:value en <input type="number"> guarda un NÚMERO, no texto — por
-    // eso se checa "=== ''" para vacío de verdad en vez de "!peso" (0 es
-    // falsy en JS y se confundiría con vacío, aunque aquí igual es inválido).
-    if (peso === '' || peso === null || peso === undefined) {
-      error = 'Ingresa un peso válido.';
+    // OJO: bind:value en <input type="number"> guarda un NÚMERO, no texto —
+    // "!calorias" trataría un 0 legítimo como vacío (0 es falsy en JS). Por
+    // eso se checa "=== ''" para vacío de verdad, aparte de validar el número.
+    // 0 sí es válido aquí (día sin ejercicio registrado); solo se rechaza
+    // vacío, no-numérico o negativo.
+    if (calorias === '' || calorias === null || calorias === undefined) {
+      error = 'Ingresa un número de calorías válido.';
       return;
     }
-    const valor = Number(peso);
-    if (Number.isNaN(valor) || valor <= 0) {
-      error = 'Ingresa un peso válido.';
+    const valor = Number(calorias);
+    if (Number.isNaN(valor) || valor < 0) {
+      error = 'Ingresa un número de calorías válido.';
       return;
     }
     guardando = true;
@@ -61,7 +63,7 @@
       const res = await fetch(`${API_URL}/metricas-ios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: 'peso', fecha: hoyISO, valor, fuente: 'manual' })
+        body: JSON.stringify({ tipo: 'calorias_quemadas', fecha: hoyISO, valor, fuente: 'manual' })
       });
       if (!res.ok) {
         const detalle = await res.json().catch(() => null);
@@ -81,8 +83,8 @@
   }
 </script>
 
-<section class="peso-page">
-  <h1>Peso</h1>
+<section class="ejercicio-page">
+  <h1>Ejercicio</h1>
   <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
 
   {#if error}
@@ -93,16 +95,16 @@
     <p class="estado">Cargando…</p>
   {:else}
     <div class="card">
-      <label for="peso-input">Peso de hoy (kg)</label>
+      <label for="calorias-input">Calorías quemadas hoy (kcal)</label>
       <div class="fila-input">
         <input
-          id="peso-input"
+          id="calorias-input"
           type="number"
           inputmode="decimal"
-          step="0.1"
+          step="1"
           min="0"
-          placeholder="Ej. 74.5"
-          bind:value={peso}
+          placeholder="Ej. 350"
+          bind:value={calorias}
           oninput={() => (guardado = false)}
           onkeydown={(e) => e.key === 'Enter' && guardar()}
         />
@@ -118,7 +120,7 @@
 </section>
 
 <style>
-  .peso-page {
+  .ejercicio-page {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
