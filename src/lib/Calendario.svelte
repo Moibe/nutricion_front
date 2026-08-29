@@ -1,9 +1,10 @@
 <script lang="ts">
-  // Calendario mensual: marca con un punto los días que ya tienen comidas
-  // guardadas (fetch propio y ligero de GET /comidas, solo para saber qué
-  // fechas tienen datos) y deja elegir un día, cuya selección se reporta al
-  // padre via onSeleccionar. El padre es quien le pasa esa fecha a
-  // <ListadoComidas fechaFiltro> para mostrar las comidas de ese día.
+  // Calendario mensual: marca cada día con hasta 3 iconitos (comida,
+  // ejercicio, peso — mismos glifos que el sidebar, para consistencia) según
+  // qué se haya capturado ese día. Fetch propio y ligero a GET /comidas +
+  // GET /metricas-ios, solo para saber qué fechas tienen qué. Deja elegir un
+  // día, cuya selección se reporta al padre via onSeleccionar; el padre le
+  // pasa esa fecha a <ListadoComidas fechaFiltro> para mostrar el detalle.
   import { env } from '$env/dynamic/public';
 
   let {
@@ -23,7 +24,9 @@
   let anio = $state(hoyAnio);
   let mes = $state(hoyMes - 1); // 0-indexado
 
-  let diasConDatos = $state<Set<string>>(new Set());
+  let diasComida = $state<Set<string>>(new Set());
+  let diasEjercicio = $state<Set<string>>(new Set());
+  let diasPeso = $state<Set<string>>(new Set());
   let cargando = $state(true);
   let error = $state<string | null>(null);
 
@@ -68,10 +71,23 @@
   $effect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/comidas`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { fecha: string }[];
-        diasConDatos = new Set(data.map((c) => c.fecha));
+        const [resComidas, resMetricas] = await Promise.all([
+          fetch(`${API_URL}/comidas`),
+          fetch(`${API_URL}/metricas-ios`)
+        ]);
+        if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
+        const comidas = (await resComidas.json()) as { fecha: string }[];
+        diasComida = new Set(comidas.map((c) => c.fecha));
+
+        // Best-effort para métricas: si falla, comida ya se mostró bien y
+        // simplemente no aparecen iconitos de ejercicio/peso.
+        if (resMetricas.ok) {
+          const metricas = (await resMetricas.json()) as { fecha: string; tipo: string }[];
+          diasEjercicio = new Set(
+            metricas.filter((m) => m.tipo === 'calorias_quemadas').map((m) => m.fecha)
+          );
+          diasPeso = new Set(metricas.filter((m) => m.tipo === 'peso').map((m) => m.fecha));
+        }
       } catch (e) {
         error =
           e instanceof TypeError
@@ -114,8 +130,56 @@
             onclick={() => onSeleccionar(fecha)}
             aria-current={fecha === seleccionada ? 'date' : undefined}
           >
-            {Number(fecha.slice(-2))}
-            {#if diasConDatos.has(fecha)}<span class="punto"></span>{/if}
+            <span class="cal-numero">{Number(fecha.slice(-2))}</span>
+            {#if diasComida.has(fecha) || diasEjercicio.has(fecha) || diasPeso.has(fecha)}
+              <span class="cal-iconos">
+                {#if diasComida.has(fecha)}
+                  <svg
+                    class="cal-ico comida"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <circle cx="12" cy="12" r="4" />
+                  </svg>
+                {/if}
+                {#if diasEjercicio.has(fecha)}
+                  <svg
+                    class="cal-ico ejercicio"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 12h4l2-7 4 14 2-7h6" />
+                  </svg>
+                {/if}
+                {#if diasPeso.has(fecha)}
+                  <svg
+                    class="cal-ico peso"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="3" y="4" width="18" height="17" rx="2" />
+                    <circle cx="12" cy="13" r="4" />
+                    <path d="M12 13l1.8-1.8" />
+                  </svg>
+                {/if}
+              </span>
+            {/if}
           </button>
         {/if}
       {/each}
@@ -128,7 +192,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
-    padding: 1.1rem 1.3rem;
+    padding: 1.2rem 1.4rem;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.55);
     border: 1px solid rgba(15, 23, 42, 0.1);
@@ -175,7 +239,7 @@
   .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 0.3rem;
+    gap: 0.45rem;
   }
 
   .cal-grid.cargando {
@@ -186,15 +250,49 @@
     position: relative;
     aspect-ratio: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     border-radius: 8px;
     border: 1px solid transparent;
     background: none;
     font: inherit;
-    font-size: 0.88rem;
     color: rgba(15, 23, 42, 0.8);
     cursor: pointer;
+  }
+
+  .cal-numero {
+    font-size: 0.85rem;
+  }
+
+  .cal-iconos {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 9px;
+  }
+
+  .cal-ico {
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+  }
+
+  .cal-ico.comida {
+    color: #2563eb;
+  }
+
+  .cal-ico.ejercicio {
+    color: #ea580c;
+  }
+
+  .cal-ico.peso {
+    color: #7c3aed;
+  }
+
+  .cal-celda.seleccionada .cal-ico {
+    color: #fff;
   }
 
   .cal-celda.vacia {
@@ -219,21 +317,6 @@
 
   .cal-celda.seleccionada:hover {
     background: #1e4fc4;
-  }
-
-  .punto {
-    position: absolute;
-    bottom: 4px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 4px;
-    border-radius: 999px;
-    background: #2563eb;
-  }
-
-  .cal-celda.seleccionada .punto {
-    background: #fff;
   }
 
   .error {

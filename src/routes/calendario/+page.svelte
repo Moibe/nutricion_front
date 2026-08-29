@@ -26,7 +26,7 @@
   }
 
   .calendario-col {
-    flex: 0 0 380px;
+    flex: 0 0 430px;
   }
 
   .resultado-col {
@@ -36,7 +36,7 @@
 
   /* Debajo de este ancho ya no cabe calendario + resultado lado a lado sin
      apachurrar alguno de los dos — vuelve al apilado vertical original. */
-  @media (max-width: 860px) {
+  @media (max-width: 910px) {
     .calendario-page {
       flex-direction: column;
     }
