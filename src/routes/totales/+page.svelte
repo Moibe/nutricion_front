@@ -144,25 +144,23 @@
       <table class="tabla-totales">
         <thead>
           <tr>
-            <th class="col-flecha"></th>
             <th class="col-fecha">Fecha</th>
             <th class="col-peso">Peso (kg)</th>
             <th class="col-basal">Basal (kcal)</th>
             <th class="col-comidas">Comidas (kcal)</th>
             <th class="col-ejercicio">Ejercicio (kcal)</th>
             <th class="col-total">Total (kcal)</th>
-            <th class="col-flecha"></th>
           </tr>
         </thead>
         <tbody>
           {#each filas as f (f.fecha)}
             <tr class:hoy={f.fecha === hoyISO}>
-              <td class="col-flecha">
+              <td class="col-fecha">
                 {#if f.fecha === hoyISO}
                   <span class="hoy-flecha hoy-flecha-in" aria-hidden="true">»</span>
                 {/if}
+                {formatoFecha(f.fecha)}
               </td>
-              <td class="col-fecha">{formatoFecha(f.fecha)}</td>
               <td class="col-peso">{f.peso !== null ? fmt(f.peso) : '—'}</td>
               <td class="col-basal">{f.kcalBasal !== null ? fmt(f.kcalBasal) : '—'}</td>
               <td class="col-comidas">{fmt(f.kcalComidas)}</td>
@@ -173,8 +171,6 @@
                 class:deficit={f.total !== null && f.total < 0}
               >
                 {f.total !== null ? fmt(f.total) : '—'}
-              </td>
-              <td class="col-flecha">
                 {#if f.fecha === hoyISO}
                   <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
                 {/if}
@@ -230,12 +226,15 @@
     font-weight: 600;
   }
 
-  /* Tabla tipo Excel: columnas y filas rectas en vez de tarjetas con chips. */
+  /* Tabla tipo Excel: columnas y filas rectas en vez de tarjetas con chips.
+     El padding lateral le da a las flechas de "hoy" espacio para flotar
+     fuera de la tabla sin que el overflow-x:auto las recorte. */
   .tabla-scroll {
     overflow-x: auto;
     border-radius: 12px;
     border: 1px solid rgba(15, 23, 42, 0.15);
     background: rgba(255, 255, 255, 0.55);
+    padding: 0 1.5rem;
   }
 
   .tabla-totales {
@@ -255,21 +254,6 @@
 
   .tabla-totales th:last-child,
   .tabla-totales td:last-child {
-    border-right: none;
-  }
-
-  /* Columnas decorativas en cada extremo: acá viven las flechas de "hoy",
-     afuera de la fila de datos (no pegadas a la fecha) — sin borde propio,
-     para que se sientan como espacio flanqueando la fila, no una columna más. */
-  .tabla-totales th.col-flecha,
-  .tabla-totales td.col-flecha {
-    width: 1.6rem;
-    padding: 0.55rem 0.25rem;
-    border-right: none;
-    text-align: center;
-  }
-
-  .tabla-totales td.col-total {
     border-right: none;
   }
 
@@ -326,10 +310,17 @@
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
-     glifo que pulsa acercándose a lo que señala. Viven en su propia columna
-     en cada extremo de la tabla, flanqueando TODA la fila de hoy (no solo
-     la fecha), apuntando los dos hacia el centro. */
+     glifo que pulsa acercándose a lo que señala. Flotan afuera de la tabla
+     (position:absolute desde las celdas de las puntas), sin ocupar columna
+     propia — el padding de .tabla-scroll les da espacio para no recortarse. */
+  .col-fecha,
+  .col-total {
+    position: relative;
+  }
+
   .hoy-flecha {
+    position: absolute;
+    top: 50%;
     display: inline-flex;
     color: #f59e0b;
     font-weight: 900;
@@ -338,21 +329,23 @@
   }
 
   .hoy-flecha-in {
+    left: -1.35rem;
     animation: hoy-flecha-in-pulso 1.2s ease-in-out infinite;
   }
 
   .hoy-flecha-out {
+    right: -1.35rem;
     animation: hoy-flecha-out-pulso 1.2s ease-in-out infinite;
   }
 
   @keyframes hoy-flecha-in-pulso {
     0%,
     100% {
-      transform: translateX(0);
+      transform: translateY(-50%) translateX(0);
       opacity: 0.8;
     }
     50% {
-      transform: translateX(3px);
+      transform: translateY(-50%) translateX(4px);
       opacity: 1;
     }
   }
@@ -360,11 +353,11 @@
   @keyframes hoy-flecha-out-pulso {
     0%,
     100% {
-      transform: translateX(0);
+      transform: translateY(-50%) translateX(0);
       opacity: 0.8;
     }
     50% {
-      transform: translateX(-3px);
+      transform: translateY(-50%) translateX(-4px);
       opacity: 1;
     }
   }
