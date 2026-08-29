@@ -126,29 +126,32 @@
     <p class="estado">Cargando…</p>
   {:else}
     <div class="card">
-      <label for="concepto-input">Concepto</label>
-      <input
-        id="concepto-input"
-        type="text"
-        placeholder="Ej. Correr 5km"
-        bind:value={concepto}
-        oninput={() => (guardado = false)}
-        onkeydown={(e) => e.key === 'Enter' && guardar()}
-      />
-
-      <label for="calorias-input">Calorías quemadas (kcal)</label>
       <div class="fila-input">
-        <input
-          id="calorias-input"
-          type="number"
-          inputmode="decimal"
-          step="1"
-          min="0"
-          placeholder="Ej. 350"
-          bind:value={calorias}
-          oninput={() => (guardado = false)}
-          onkeydown={(e) => e.key === 'Enter' && guardar()}
-        />
+        <div class="campo campo-concepto">
+          <label for="concepto-input">Concepto</label>
+          <input
+            id="concepto-input"
+            type="text"
+            placeholder="Ej. Correr 5km"
+            bind:value={concepto}
+            oninput={() => (guardado = false)}
+            onkeydown={(e) => e.key === 'Enter' && guardar()}
+          />
+        </div>
+        <div class="campo campo-calorias">
+          <label for="calorias-input">Kcal</label>
+          <input
+            id="calorias-input"
+            type="number"
+            inputmode="decimal"
+            step="1"
+            min="0"
+            placeholder="350"
+            bind:value={calorias}
+            oninput={() => (guardado = false)}
+            onkeydown={(e) => e.key === 'Enter' && guardar()}
+          />
+        </div>
         <button type="button" onclick={guardar} disabled={guardando}>
           {guardando ? 'Guardando…' : 'Guardar'}
         </button>
@@ -210,8 +213,36 @@
 
   .fila-input {
     display: flex;
+    align-items: flex-end;
     flex-wrap: wrap;
     gap: 0.6rem;
+  }
+
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .campo-concepto {
+    flex: 2;
+    min-width: 160px;
+  }
+
+  .campo-calorias {
+    flex: 0 0 90px;
+  }
+
+  /* El input global trae min-width: 140px (ver más abajo) — se pisa aquí
+     para que este campo sí pueda quedar angosto como se pidió. */
+  .campo-calorias input {
+    min-width: 0;
+    width: 90px;
+  }
+
+  .fila-input > button {
+    flex-shrink: 0;
   }
 
   input {
