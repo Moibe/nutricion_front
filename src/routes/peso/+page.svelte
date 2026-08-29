@@ -2,22 +2,41 @@
   // Captura manual del peso del día (complemento al Atajo de iOS): un campo
   // + botón Guardar que hacen upsert directo a POST /metricas-ios
   // (tipo=peso), el mismo "cachador" genérico que usa el Atajo. Si ya hay un
-  // valor guardado hoy (por el Atajo o por esta misma página antes), se
+  // valor guardado ese día (por el Atajo o por esta misma página antes), se
   // precarga en el campo en vez de arrancar vacío.
+  //
+  // ?fecha=YYYY-MM-DD (opcional, en la URL): permite capturar/corregir el
+  // peso de un día PASADO, no solo hoy — así puede llegar directo desde una
+  // celda vacía de /totales. Sin el parámetro (el link del sidebar "Peso
+  // Hoy"), se comporta igual que siempre: hoy.
   import { env } from '$env/dynamic/public';
+  import { page } from '$app/state';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX).
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
-  const hoyLargoRaw = new Date().toLocaleDateString('es-MX', {
-    timeZone: 'America/Mexico_City',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-  const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
+
+  function formatoFechaLarga(fecha: string): string {
+    const [y, m, d] = fecha.split('-').map(Number);
+    const raw = new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }
+
+  // Solo se acepta un ?fecha= con forma de fecha y que no sea futura (mismo
+  // criterio que ya valida el back) — cualquier otra cosa cae a hoy.
+  const fechaParam = $derived(page.url.searchParams.get('fecha'));
+  const fechaValida = $derived(
+    fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyISO ? fechaParam : null
+  );
+  const fechaObjetivo = $derived(fechaValida ?? hoyISO);
+  const esHoy = $derived(fechaObjetivo === hoyISO);
+  const fechaLargoObjetivo = $derived(formatoFechaLarga(fechaObjetivo));
 
   let peso = $state('');
   let cargando = $state(true);
@@ -38,13 +57,20 @@
   let errorPerfil = $state<string | null>(null);
 
   $effect(() => {
+    // Leído SÍNCRONO (antes del IIFE) para que el effect quede suscrito a
+    // fechaObjetivo y vuelva a correr si navegas de un ?fecha= a otro sin
+    // desmontar la página (mismo componente, misma ruta).
+    const fecha = fechaObjetivo;
+    peso = '';
+    guardado = false;
+    cargando = true;
     (async () => {
       try {
         const res = await fetch(`${API_URL}/metricas-ios`);
         if (res.ok) {
           const datos = (await res.json()) as { fecha: string; tipo: string; valor: number }[];
-          const deHoy = datos.find((m) => m.fecha === hoyISO && m.tipo === 'peso');
-          if (deHoy) peso = String(deHoy.valor);
+          const deEseDia = datos.find((m) => m.fecha === fecha && m.tipo === 'peso');
+          if (deEseDia) peso = String(deEseDia.valor);
         }
       } catch {
         // Si falla la carga, simplemente arranca vacío — no bloquea poder capturar.
@@ -91,7 +117,9 @@
   // este momento (aunque no se haya guardado todavía) + el perfil.
   const bmr = $derived.by(() => {
     if (!perfil || pesoNumerico === null || Number.isNaN(pesoNumerico) || pesoNumerico <= 0) return null;
-    const edad = calcularEdad(perfil.fecha_nacimiento, hoyISO);
+    // Edad EN fechaObjetivo (no siempre hoy): si estás corrigiendo un día
+    // pasado, el metabolismo basal de ESE día usa la edad que tenías entonces.
+    const edad = calcularEdad(perfil.fecha_nacimiento, fechaObjetivo);
     const base = 10 * pesoNumerico + 6.25 * perfil.estatura_cm - 5 * edad;
     return Math.round(perfil.sexo === 'hombre' ? base + 5 : base - 161);
   });
@@ -164,7 +192,7 @@
       const res = await fetch(`${API_URL}/metricas-ios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: 'peso', fecha: hoyISO, valor, fuente: 'manual' })
+        body: JSON.stringify({ tipo: 'peso', fecha: fechaObjetivo, valor, fuente: 'manual' })
       });
       if (!res.ok) {
         const detalle = await res.json().catch(() => null);
@@ -186,7 +214,14 @@
 
 <section class="peso-page">
   <h1>Peso</h1>
-  <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+  {#if esHoy}
+    <p class="hoy">Hoy es: <strong>{fechaLargoObjetivo}</strong></p>
+  {:else}
+    <p class="hoy">
+      Editando: <strong>{fechaLargoObjetivo}</strong>
+      <a href="/peso" class="volver-hoy">volver a hoy</a>
+    </p>
+  {/if}
 
   {#if error}
     <div class="error">⚠️ {error}</div>
@@ -196,7 +231,7 @@
     <p class="estado">Cargando…</p>
   {:else}
     <div class="card">
-      <label for="peso-input">Peso de hoy (kg)</label>
+      <label for="peso-input">Peso (kg)</label>
       <div class="fila-input">
         <input
           id="peso-input"
@@ -316,6 +351,17 @@
 
   .hoy strong {
     color: rgba(15, 23, 42, 0.9);
+  }
+
+  .volver-hoy {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  .volver-hoy:hover {
+    text-decoration: underline;
   }
 
   .estado {

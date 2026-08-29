@@ -183,8 +183,20 @@
             {#each filas as f (f.fecha)}
               <tr class:hoy={f.fecha === hoyISO}>
                 <td class="col-fecha">{formatoFecha(f.fecha)}</td>
-                <td class="col-peso">{f.peso !== null ? fmt(f.peso) : '—'}</td>
-                <td class="col-basal">{f.kcalBasal !== null ? fmt(f.kcalBasal) : '—'}</td>
+                <td class="col-peso">
+                  {#if f.peso !== null}
+                    {fmt(f.peso)}
+                  {:else}
+                    <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                  {/if}
+                </td>
+                <td class="col-basal">
+                  {#if f.kcalBasal !== null}
+                    {fmt(f.kcalBasal)}
+                  {:else}
+                    <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                  {/if}
+                </td>
                 <td class="col-comidas">{fmt(f.kcalComidas)}</td>
                 <td class="col-ejercicio">{fmt(f.kcalEjercicio)}</td>
                 <td
@@ -192,7 +204,11 @@
                   class:superavit={f.total !== null && f.total >= 0}
                   class:deficit={f.total !== null && f.total < 0}
                 >
-                  {f.total !== null ? fmt(f.total) : '—'}
+                  {#if f.total !== null}
+                    {fmt(f.total)}
+                  {:else}
+                    <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                  {/if}
                 </td>
               </tr>
             {/each}
@@ -332,6 +348,21 @@
   .col-total.deficit {
     color: #166534;
     font-weight: 700;
+  }
+
+  /* Celda vacía (peso/basal/total sin dato): clicable → /peso?fecha=X para
+     capturarlo ahí mismo. Guion con línea punteada en vez de link azul, para
+     no romper el aspecto plano de la tabla hasta que se pase el mouse. */
+  .vacio {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(15, 23, 42, 0.35);
+    cursor: pointer;
+  }
+
+  .vacio:hover {
+    color: #1e3a8a;
+    border-bottom-color: #1e3a8a;
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
