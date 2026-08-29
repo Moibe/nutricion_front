@@ -144,26 +144,25 @@
       <table class="tabla-totales">
         <thead>
           <tr>
+            <th class="col-flecha"></th>
             <th class="col-fecha">Fecha</th>
             <th class="col-peso">Peso (kg)</th>
             <th class="col-basal">Basal (kcal)</th>
             <th class="col-comidas">Comidas (kcal)</th>
             <th class="col-ejercicio">Ejercicio (kcal)</th>
             <th class="col-total">Total (kcal)</th>
+            <th class="col-flecha"></th>
           </tr>
         </thead>
         <tbody>
           {#each filas as f (f.fecha)}
             <tr class:hoy={f.fecha === hoyISO}>
-              <td class="col-fecha">
+              <td class="col-flecha">
                 {#if f.fecha === hoyISO}
                   <span class="hoy-flecha hoy-flecha-in" aria-hidden="true">»</span>
                 {/if}
-                {formatoFecha(f.fecha)}
-                {#if f.fecha === hoyISO}
-                  <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
-                {/if}
               </td>
+              <td class="col-fecha">{formatoFecha(f.fecha)}</td>
               <td class="col-peso">{f.peso !== null ? fmt(f.peso) : '—'}</td>
               <td class="col-basal">{f.kcalBasal !== null ? fmt(f.kcalBasal) : '—'}</td>
               <td class="col-comidas">{fmt(f.kcalComidas)}</td>
@@ -174,6 +173,11 @@
                 class:deficit={f.total !== null && f.total < 0}
               >
                 {f.total !== null ? fmt(f.total) : '—'}
+              </td>
+              <td class="col-flecha">
+                {#if f.fecha === hoyISO}
+                  <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -254,6 +258,21 @@
     border-right: none;
   }
 
+  /* Columnas decorativas en cada extremo: acá viven las flechas de "hoy",
+     afuera de la fila de datos (no pegadas a la fecha) — sin borde propio,
+     para que se sientan como espacio flanqueando la fila, no una columna más. */
+  .tabla-totales th.col-flecha,
+  .tabla-totales td.col-flecha {
+    width: 1.6rem;
+    padding: 0.55rem 0.25rem;
+    border-right: none;
+    text-align: center;
+  }
+
+  .tabla-totales td.col-total {
+    border-right: none;
+  }
+
   .tabla-totales tbody tr:last-child td {
     border-bottom: none;
   }
@@ -307,8 +326,9 @@
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
-     glifo que pulsa acercándose a lo que señala. Uno de cada lado de la
-     fecha de hoy, apuntando los dos hacia el centro. */
+     glifo que pulsa acercándose a lo que señala. Viven en su propia columna
+     en cada extremo de la tabla, flanqueando TODA la fila de hoy (no solo
+     la fecha), apuntando los dos hacia el centro. */
   .hoy-flecha {
     display: inline-flex;
     color: #f59e0b;
@@ -318,12 +338,10 @@
   }
 
   .hoy-flecha-in {
-    margin-right: 0.25rem;
     animation: hoy-flecha-in-pulso 1.2s ease-in-out infinite;
   }
 
   .hoy-flecha-out {
-    margin-left: 0.25rem;
     animation: hoy-flecha-out-pulso 1.2s ease-in-out infinite;
   }
 
