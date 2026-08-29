@@ -31,6 +31,28 @@
   let filas = $state<Fila[]>([]);
   let perfil = $state<Perfil | null>(null);
 
+  // Posición vertical (px, relativa a .tabla-wrap) de la fila de hoy, para
+  // flotar las flechas AFUERA de .tabla-scroll (que sí necesita su propio
+  // overflow-x:auto para pantallas angostas) sobre el fondo de la página en
+  // vez de sobre el blanco de la tabla. Medido en vez de calculado a mano
+  // porque el alto real de una fila depende de fuente/renderizado del
+  // navegador. null mientras no hay fila de hoy que señalar.
+  let tablaWrapEl = $state<HTMLDivElement | null>(null);
+  let flechaTop = $state<number | null>(null);
+
+  $effect(() => {
+    filas;
+    if (!tablaWrapEl) return;
+    const filaHoy = tablaWrapEl.querySelector<HTMLTableRowElement>('tr.hoy');
+    if (!filaHoy) {
+      flechaTop = null;
+      return;
+    }
+    const filaRect = filaHoy.getBoundingClientRect();
+    const wrapRect = tablaWrapEl.getBoundingClientRect();
+    flechaTop = filaRect.top - wrapRect.top + filaRect.height / 2;
+  });
+
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
   // Corta (no el formato largo con día de semana): en una tabla, cada
@@ -140,45 +162,43 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados en ningún día.</p>
   {:else}
-    <div class="tabla-scroll">
-      <table class="tabla-totales">
-        <thead>
-          <tr>
-            <th class="col-fecha">Fecha</th>
-            <th class="col-peso">Peso (kg)</th>
-            <th class="col-basal">Basal (kcal)</th>
-            <th class="col-comidas">Comidas (kcal)</th>
-            <th class="col-ejercicio">Ejercicio (kcal)</th>
-            <th class="col-total">Total (kcal)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each filas as f (f.fecha)}
-            <tr class:hoy={f.fecha === hoyISO}>
-              <td class="col-fecha">
-                {#if f.fecha === hoyISO}
-                  <span class="hoy-flecha hoy-flecha-in" aria-hidden="true">»</span>
-                {/if}
-                {formatoFecha(f.fecha)}
-              </td>
-              <td class="col-peso">{f.peso !== null ? fmt(f.peso) : '—'}</td>
-              <td class="col-basal">{f.kcalBasal !== null ? fmt(f.kcalBasal) : '—'}</td>
-              <td class="col-comidas">{fmt(f.kcalComidas)}</td>
-              <td class="col-ejercicio">{fmt(f.kcalEjercicio)}</td>
-              <td
-                class="col-total"
-                class:superavit={f.total !== null && f.total >= 0}
-                class:deficit={f.total !== null && f.total < 0}
-              >
-                {f.total !== null ? fmt(f.total) : '—'}
-                {#if f.fecha === hoyISO}
-                  <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
-                {/if}
-              </td>
+    <div class="tabla-wrap" bind:this={tablaWrapEl}>
+      {#if flechaTop !== null}
+        <span class="hoy-flecha hoy-flecha-in" style="top: {flechaTop}px" aria-hidden="true">»</span>
+        <span class="hoy-flecha hoy-flecha-out" style="top: {flechaTop}px" aria-hidden="true">«</span>
+      {/if}
+      <div class="tabla-scroll">
+        <table class="tabla-totales">
+          <thead>
+            <tr>
+              <th class="col-fecha">Fecha</th>
+              <th class="col-peso">Peso (kg)</th>
+              <th class="col-basal">Basal (kcal)</th>
+              <th class="col-comidas">Comidas (kcal)</th>
+              <th class="col-ejercicio">Ejercicio (kcal)</th>
+              <th class="col-total">Total (kcal)</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {#each filas as f (f.fecha)}
+              <tr class:hoy={f.fecha === hoyISO}>
+                <td class="col-fecha">{formatoFecha(f.fecha)}</td>
+                <td class="col-peso">{f.peso !== null ? fmt(f.peso) : '—'}</td>
+                <td class="col-basal">{f.kcalBasal !== null ? fmt(f.kcalBasal) : '—'}</td>
+                <td class="col-comidas">{fmt(f.kcalComidas)}</td>
+                <td class="col-ejercicio">{fmt(f.kcalEjercicio)}</td>
+                <td
+                  class="col-total"
+                  class:superavit={f.total !== null && f.total >= 0}
+                  class:deficit={f.total !== null && f.total < 0}
+                >
+                  {f.total !== null ? fmt(f.total) : '—'}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     </div>
   {/if}
 </section>
@@ -226,15 +246,20 @@
     font-weight: 600;
   }
 
-  /* Tabla tipo Excel: columnas y filas rectas en vez de tarjetas con chips.
-     El padding lateral le da a las flechas de "hoy" espacio para flotar
-     fuera de la tabla sin que el overflow-x:auto las recorte. */
+  /* .tabla-wrap es el contenedor SIN overflow ni fondo propio: ahí flotan
+     las flechas de "hoy", sobre el fondo translúcido de la página en vez del
+     blanco de la tabla. .tabla-scroll es quien recorta con overflow-x:auto
+     (pantallas angostas) y quien SÍ trae el fondo/borde/radius de la tabla —
+     al ser hermanas (no hijas de .tabla-scroll), las flechas no se recortan. */
+  .tabla-wrap {
+    position: relative;
+  }
+
   .tabla-scroll {
     overflow-x: auto;
     border-radius: 12px;
     border: 1px solid rgba(15, 23, 42, 0.15);
     background: rgba(255, 255, 255, 0.55);
-    padding: 0 1.5rem;
   }
 
   .tabla-totales {
@@ -310,17 +335,12 @@
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
-     glifo que pulsa acercándose a lo que señala. Flotan afuera de la tabla
-     (position:absolute desde las celdas de las puntas), sin ocupar columna
-     propia — el padding de .tabla-scroll les da espacio para no recortarse. */
-  .col-fecha,
-  .col-total {
-    position: relative;
-  }
-
+     glifo que pulsa acercándose a lo que señala. `top` llega por JS (medido
+     contra la fila de hoy real, ver $effect arriba) porque el alto de fila
+     depende del navegador; `left`/`right` las sacan del todo de .tabla-scroll,
+     flotando sobre .tabla-wrap (fondo translúcido de la página, no blanco). */
   .hoy-flecha {
     position: absolute;
-    top: 50%;
     display: inline-flex;
     color: #f59e0b;
     font-weight: 900;
