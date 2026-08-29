@@ -240,7 +240,6 @@
           inputmode="decimal"
           step="0.1"
           min="0"
-          placeholder="74.5"
           bind:value={peso}
           oninput={() => (guardado = false)}
           onkeydown={(e) => e.key === 'Enter' && guardar()}
