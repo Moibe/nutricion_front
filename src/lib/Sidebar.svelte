@@ -58,6 +58,22 @@
 </script>
 
 {#snippet navLinks()}
+  <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
+    <svg
+      class="nav-ico"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+    <span>Calendario</span>
+  </a>
   <a href="/hoy" class="nav-item" aria-current={isActive('/hoy') ? 'page' : undefined}>
     <svg
       class="nav-ico"
@@ -74,23 +90,7 @@
         d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
       />
     </svg>
-    <span>Hoy</span>
-  </a>
-  <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
-    <svg
-      class="nav-ico"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-    <span>Calendario</span>
+    <span>Alimentación Hoy</span>
   </a>
 {/snippet}
 
