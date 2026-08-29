@@ -225,14 +225,10 @@
     padding: 1.5rem 1rem;
     display: flex;
     flex-direction: column;
-    background: rgba(255, 255, 255, 0.35);
-    backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 16px;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      0 4px 16px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 4px 16px rgba(15, 15, 15, 0.06);
     transition: transform 0.18s ease-out;
     will-change: transform;
     user-select: none;
@@ -258,9 +254,10 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.7rem 0.95rem;
-    color: rgba(15, 23, 42, 0.82);
+    color: var(--ink);
     text-decoration: none;
     font-size: 0.95rem;
+    font-weight: 600;
     letter-spacing: 0.01em;
     border-radius: 8px;
     border: 1px solid transparent;
@@ -296,14 +293,18 @@
   }
 
   .nav-item:hover {
-    background: rgba(255, 255, 255, 0.6);
-    border-color: rgba(15, 23, 42, 0.1);
+    background: rgba(15, 15, 15, 0.05);
+    border-color: var(--line);
   }
 
+  /* Selección estilo Nike: negro sólido + texto blanco, no un tinte azul
+     translúcido — los iconitos de categoría conservan su propio color
+     (mismo criterio que ya usa Calendario.svelte) para seguir sirviendo de
+     guía visual incluso sobre el fondo negro. */
   .nav-item[aria-current='page'] {
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.16);
-    border-color: rgba(37, 99, 235, 0.4);
+    color: #ffffff;
+    background: var(--ink);
+    border-color: var(--ink);
   }
 
   .nav-item[aria-current='page'] .nav-ico.calendario {
@@ -337,11 +338,11 @@
 
   .collapse-btn,
   .reveal-handle {
-    background: rgba(255, 255, 255, 0.4);
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 8px;
     padding: 0.4rem 0.5rem;
-    color: rgba(15, 23, 42, 0.7);
+    color: var(--ink);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -352,12 +353,11 @@
 
   .collapse-btn:hover,
   .reveal-handle:hover {
-    background: rgba(255, 255, 255, 0.65);
-    border-color: rgba(15, 23, 42, 0.2);
-    color: #1e3a8a;
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
-  /* Cuando la barra está replegada, queda solo este handle flotante de vidrio. */
+  /* Cuando la barra está replegada, queda solo este handle flotante. */
   .reveal-handle {
     position: fixed;
     left: 0.75rem;
@@ -365,13 +365,8 @@
     transform: translateY(-50%);
     padding: 0.55rem 0.45rem;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    background: rgba(255, 255, 255, 0.35);
-    backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      0 4px 16px rgba(15, 23, 42, 0.12);
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(15, 15, 15, 0.1);
     z-index: 10;
   }
 
@@ -395,7 +390,7 @@
       display: block;
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.35);
+      background: rgba(15, 15, 15, 0.4);
       z-index: 15;
     }
 
@@ -409,10 +404,7 @@
       max-width: none;
       z-index: 16;
       transform: translateX(-120%);
-      /* Más opaco que el sidebar de escritorio: aquí sí hay contenido con
-         texto detrás (p.ej. los botones de /hoy) y con solo 0.35 de
-         alfa se alcanzaba a leer encimado con los links del drawer. */
-      background: rgba(226, 240, 255, 0.97);
+      background: #ffffff;
     }
 
     .mobile-drawer.open {

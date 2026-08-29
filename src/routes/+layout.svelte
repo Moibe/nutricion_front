@@ -66,11 +66,22 @@
     height: 100%;
   }
 
+  /* Paleta tipo Nike Run Club: blanco/negro de alto contraste + "volt" como
+     único acento de color, en vez del degradado azul + vidrio esmerilado de
+     antes. Variables globales para que el resto de componentes (TopNav,
+     Sidebar, cada página) las reusen en vez de repetir hex sueltos. */
+  :global(:root) {
+    --volt: #d7ff3d;
+    --volt-ink: #1a2400;
+    --ink: #0f0f0f;
+    --ink-soft: rgba(15, 15, 15, 0.62);
+    --line: rgba(15, 15, 15, 0.12);
+  }
+
   :global(body) {
     min-height: 100vh;
-    background: linear-gradient(135deg, #bae6fd 0%, #60a5fa 100%);
-    background-attachment: fixed;
-    color: rgba(15, 23, 42, 0.9);
+    background: #f4f4f2;
+    color: var(--ink);
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
@@ -80,14 +91,10 @@
     right: 1rem;
     bottom: 1rem;
     box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 16px;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.55),
-      0 4px 16px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 4px 16px rgba(15, 15, 15, 0.06);
     overflow: hidden;
     transition: left 0.22s ease-out;
     left: calc(var(--sidebar-width, 240px) + 2rem);

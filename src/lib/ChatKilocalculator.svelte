@@ -412,8 +412,9 @@
   }
 
   .ghost:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.75);
-    color: #1e3a8a;
+    background: var(--volt);
+    border-color: var(--volt);
+    color: var(--volt-ink);
   }
 
   .ghost:disabled {
@@ -435,18 +436,20 @@
 
   .suggestion {
     margin-top: 0.4rem;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px dashed rgba(37, 99, 235, 0.4);
+    background: #ffffff;
+    border: 1px dashed rgba(15, 15, 15, 0.35);
     border-radius: 10px;
     padding: 0.5rem 0.8rem;
-    color: #1e3a8a;
+    color: var(--ink);
     cursor: pointer;
     font: inherit;
     font-size: 0.9rem;
   }
 
   .suggestion:hover {
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--volt);
+    border-color: var(--volt);
+    border-style: solid;
   }
 
   .bubble {
@@ -456,18 +459,20 @@
     max-width: 100%;
   }
 
+  /* Burbuja propia en negro sólido (como el resto de los "esto está
+     seleccionado/activo" de la app), no un tinte azul. */
   .bubble.user {
     align-self: flex-end;
-    background: rgba(37, 99, 235, 0.16);
-    border-color: rgba(37, 99, 235, 0.35);
-    color: #1e3a8a;
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #ffffff;
     max-width: 80%;
   }
 
   .bubble.bot {
     align-self: flex-start;
-    background: rgba(255, 255, 255, 0.55);
-    border-color: rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border-color: var(--line);
     width: 100%;
     box-sizing: border-box;
   }
@@ -507,8 +512,8 @@
     gap: 0.15rem;
     padding: 0.7rem 0.85rem;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .macro .val {
@@ -524,33 +529,34 @@
   }
 
   .macro.kcal {
-    background: rgba(37, 99, 235, 0.14);
-    border-color: rgba(37, 99, 235, 0.35);
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
   .macro.kcal .val {
-    color: #1e3a8a;
+    color: var(--ink);
   }
 
   .save-row {
     margin-top: 0.7rem;
   }
 
+  /* CTA principal del panel de resultado: volt sólido + texto negro. */
   .save-btn {
-    background: rgba(37, 99, 235, 0.12);
-    border: 1px solid rgba(37, 99, 235, 0.4);
-    color: #1e3a8a;
+    background: var(--volt);
+    border: 1px solid var(--volt);
+    color: var(--ink);
     border-radius: 8px;
     padding: 0.4rem 0.9rem;
     font: inherit;
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.18s ease;
+    transition: filter 0.18s ease;
   }
 
   .save-btn:hover:not(:disabled) {
-    background: rgba(37, 99, 235, 0.2);
+    filter: brightness(0.94);
   }
 
   .save-btn:disabled {
@@ -576,8 +582,8 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 2px solid rgba(37, 99, 235, 0.3);
-    border-top-color: #2563eb;
+    border: 2px solid rgba(15, 15, 15, 0.15);
+    border-top-color: var(--ink);
     animation: spin 0.7s linear infinite;
   }
 
@@ -607,33 +613,33 @@
     flex: 1;
     padding: 0.7rem 0.95rem;
     border-radius: 10px;
-    border: 1px solid rgba(15, 23, 42, 0.15);
-    background: rgba(255, 255, 255, 0.7);
-    color: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--ink);
     font: inherit;
     font-size: 0.95rem;
   }
 
   .composer input:focus {
     outline: none;
-    border-color: rgba(37, 99, 235, 0.55);
-    background: rgba(255, 255, 255, 0.9);
+    border-color: var(--ink);
   }
 
+  /* CTA principal del composer: mismo volt sólido que .save-btn. */
   .send {
     padding: 0.7rem 1.3rem;
     border-radius: 10px;
-    border: 1px solid rgba(37, 99, 235, 0.5);
-    background: rgba(37, 99, 235, 0.85);
-    color: #fff;
+    border: 1px solid var(--volt);
+    background: var(--volt);
+    color: var(--ink);
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.18s ease;
+    transition: filter 0.18s ease;
   }
 
   .send:hover:not(:disabled) {
-    background: #2563eb;
+    filter: brightness(0.94);
   }
 
   .send:disabled {

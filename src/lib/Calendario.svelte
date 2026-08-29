@@ -194,8 +194,8 @@
     gap: 0.9rem;
     padding: 1.2rem 1.4rem;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .cal-header {
@@ -207,24 +207,24 @@
   .cal-titulo {
     font-weight: 700;
     font-size: 1.05rem;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
   }
 
   .cal-nav {
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 8px;
     width: 2rem;
     height: 2rem;
     font-size: 1.1rem;
     line-height: 1;
-    color: #1e3a8a;
+    color: var(--ink);
     cursor: pointer;
   }
 
   .cal-nav:hover {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(37, 99, 235, 0.4);
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
   .cal-dias-semana {
@@ -233,7 +233,7 @@
     text-align: center;
     font-size: 0.78rem;
     font-weight: 600;
-    color: rgba(15, 23, 42, 0.5);
+    color: var(--ink-soft);
   }
 
   .cal-grid {
@@ -258,7 +258,7 @@
     border: 1px solid transparent;
     background: none;
     font: inherit;
-    color: rgba(15, 23, 42, 0.8);
+    color: var(--ink);
     cursor: pointer;
   }
 
@@ -300,23 +300,25 @@
   }
 
   button.cal-celda:hover {
-    background: rgba(255, 255, 255, 0.7);
-    border-color: rgba(15, 23, 42, 0.12);
+    background: rgba(15, 15, 15, 0.05);
+    border-color: var(--line);
   }
 
   .cal-celda.hoy {
-    border-color: rgba(37, 99, 235, 0.4);
+    border-color: var(--ink);
     font-weight: 700;
   }
 
+  /* Mismo negro sólido que la selección activa del sidebar — un solo
+     lenguaje de "esto está elegido" en toda la app. */
   .cal-celda.seleccionada {
-    background: #2563eb;
-    border-color: #2563eb;
+    background: var(--ink);
+    border-color: var(--ink);
     color: #fff;
   }
 
   .cal-celda.seleccionada:hover {
-    background: #1e4fc4;
+    background: #2a2a2a;
   }
 
   .error {

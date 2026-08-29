@@ -148,14 +148,10 @@
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    background: rgba(255, 255, 255, 0.35);
-    backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 16px;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      0 4px 16px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 4px 16px rgba(15, 15, 15, 0.06);
     /* El tilt se anima suave al volver a plano. */
     transition: transform 0.18s ease-out;
     will-change: transform;
@@ -170,17 +166,17 @@
     width: 36px;
     height: 36px;
     margin-right: 0.5rem;
-    background: rgba(255, 255, 255, 0.4);
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 8px;
-    color: rgba(15, 23, 42, 0.75);
+    color: var(--ink);
     cursor: pointer;
     flex-shrink: 0;
   }
 
   .hamburger:hover {
-    background: rgba(255, 255, 255, 0.65);
-    color: #1e3a8a;
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
   @media (max-width: 768px) {
@@ -201,7 +197,7 @@
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
     text-decoration: none;
     border-radius: 8px;
     padding: 0.25rem 0.4rem;
@@ -209,9 +205,11 @@
   }
 
   .brand:hover {
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(15, 15, 15, 0.05);
   }
 
+  /* El ícono de la gota se conserva EXACTAMENTE como estaba (azul) — es lo
+     único que pidió mantener del look anterior. */
   .brand-mark {
     width: 22px;
     height: 22px;
@@ -238,11 +236,11 @@
     scrollbar-width: none;
     padding: 0.35rem 0.85rem;
     border-radius: 999px;
-    background: rgba(37, 99, 235, 0.12);
-    border: 1px solid rgba(37, 99, 235, 0.35);
-    color: #1e3a8a;
+    background: var(--volt);
+    border: 1px solid var(--volt);
+    color: var(--volt-ink);
     text-decoration: none;
-    transition: background 0.18s ease;
+    transition: filter 0.18s ease;
   }
 
   .uso-pill::-webkit-scrollbar {
@@ -250,7 +248,7 @@
   }
 
   .uso-pill:hover {
-    background: rgba(37, 99, 235, 0.2);
+    filter: brightness(0.94);
   }
 
   .uso-icon {
@@ -271,7 +269,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: rgba(30, 58, 138, 0.65);
+    color: rgba(26, 36, 0, 0.65);
   }
 
   .uso-value {
@@ -285,7 +283,7 @@
     align-self: stretch;
     width: 1px;
     margin: 0.1rem 0;
-    background: rgba(37, 99, 235, 0.25);
+    background: rgba(26, 36, 0, 0.2);
   }
 
   @media (max-width: 768px) {

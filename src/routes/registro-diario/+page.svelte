@@ -285,24 +285,26 @@
     gap: 1.1rem;
     max-width: 720px;
     margin: 0 auto;
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   h1 {
     margin: 0;
-    font-size: 1.35rem;
-    color: rgba(15, 23, 42, 0.95);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
   }
 
   .sub {
     margin: 0;
     font-size: 0.85rem;
-    color: rgba(15, 23, 42, 0.55);
+    color: var(--ink-soft);
   }
 
   .estado {
     margin: 0;
-    color: rgba(15, 23, 42, 0.6);
+    color: var(--ink-soft);
     font-size: 0.95rem;
   }
 
@@ -318,32 +320,32 @@
   .mes-titulo {
     font-weight: 700;
     font-size: 1.05rem;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
     min-width: 9rem;
     text-align: center;
   }
 
   .mes-nav {
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 8px;
     width: 2rem;
     height: 2rem;
     font-size: 1.1rem;
     line-height: 1;
-    color: #1e3a8a;
+    color: var(--ink);
     cursor: pointer;
   }
 
   .mes-nav:hover {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(37, 99, 235, 0.4);
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
   .aviso {
-    background: rgba(219, 39, 119, 0.08);
-    border: 1px solid rgba(219, 39, 119, 0.3);
-    color: rgba(15, 23, 42, 0.8);
+    background: #ffffff;
+    border: 1px solid var(--ink);
+    color: var(--ink);
     border-radius: 10px;
     padding: 0.6rem 0.85rem;
     font-size: 0.85rem;
@@ -351,8 +353,9 @@
   }
 
   .aviso a {
-    color: #db2777;
-    font-weight: 600;
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: underline;
   }
 
   /* .tabla-wrap es el contenedor SIN overflow ni fondo propio: ahí flotan
@@ -367,8 +370,8 @@
   .tabla-scroll {
     overflow-x: auto;
     border-radius: 12px;
-    border: 1px solid rgba(15, 23, 42, 0.15);
-    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid var(--line);
+    background: #ffffff;
   }
 
   .tabla-registro {
@@ -381,8 +384,8 @@
   .tabla-registro th,
   .tabla-registro td {
     padding: 0.55rem 0.9rem;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.1);
-    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
     text-align: right;
   }
 
@@ -400,12 +403,12 @@
   }
 
   .tabla-registro thead th {
-    background: rgba(15, 23, 42, 0.04);
-    font-weight: 700;
+    background: #fafaf8;
+    font-weight: 800;
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: rgba(15, 23, 42, 0.55);
+    color: var(--ink-soft);
   }
 
   .tabla-registro thead th.col-peso {
@@ -421,16 +424,19 @@
   }
 
   .tabla-registro tbody tr:nth-child(even) {
-    background: rgba(15, 23, 42, 0.02);
+    background: rgba(15, 15, 15, 0.02);
   }
 
+  /* El acento volt reservado para EL momento más importante de la tabla: el
+     día de hoy — como fondo (nunca como texto: volt sobre blanco casi no
+     contrasta, solo funciona bien como relleno detrás de texto negro). */
   .tabla-registro tbody tr.hoy {
-    background: rgba(245, 158, 11, 0.12);
+    background: rgba(215, 255, 61, 0.4);
   }
 
   .tabla-registro tbody td {
     font-variant-numeric: tabular-nums;
-    color: rgba(15, 23, 42, 0.85);
+    color: var(--ink);
   }
 
   .col-total.superavit {
@@ -449,26 +455,27 @@
   .vacio {
     color: inherit;
     text-decoration: none;
-    border-bottom: 1px dashed rgba(15, 23, 42, 0.35);
+    border-bottom: 1px dashed rgba(15, 15, 15, 0.35);
     cursor: pointer;
   }
 
   .vacio:hover {
-    color: #1e3a8a;
-    border-bottom-color: #1e3a8a;
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    border-bottom-style: solid;
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
      glifo que pulsa acercándose a lo que señala. `top` llega por JS (medido
      contra la fila de hoy real, ver $effect arriba) porque el alto de fila
      depende del navegador; `left`/`right` las sacan del todo de .tabla-scroll,
-     flotando sobre .tabla-wrap (fondo translúcido de la página, no blanco). */
+     flotando sobre .tabla-wrap (fondo translúcido de la página, no blanco).
+     Negro (no volt): volt como texto/glifo sobre blanco casi no se ve. */
   .hoy-flecha {
     position: absolute;
     display: inline-flex;
-    color: #f59e0b;
+    color: var(--ink);
     font-weight: 900;
-    text-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
     user-select: none;
   }
 

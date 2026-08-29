@@ -712,13 +712,15 @@
 
   h1 {
     margin: 0;
-    font-size: 1.35rem;
-    color: rgba(15, 23, 42, 0.95);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
   }
 
   .estado {
     margin: 0;
-    color: rgba(15, 23, 42, 0.6);
+    color: var(--ink-soft);
     font-size: 0.95rem;
   }
 
@@ -733,21 +735,21 @@
   .hoy {
     margin: 0;
     font-size: 0.95rem;
-    color: rgba(15, 23, 42, 0.65);
+    color: var(--ink-soft);
   }
 
   .hoy strong {
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   .peso-dia {
     margin: 0;
     font-size: 0.95rem;
-    color: rgba(15, 23, 42, 0.65);
+    color: var(--ink-soft);
   }
 
   .peso-dia strong {
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   .botones {
@@ -762,11 +764,11 @@
     min-width: 110px;
     padding: 0.8rem 1rem;
     border-radius: 10px;
-    border: 1px solid rgba(37, 99, 235, 0.35);
-    background: rgba(255, 255, 255, 0.55);
-    color: #1e3a8a;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--ink);
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.95rem;
     cursor: pointer;
     transition:
@@ -790,16 +792,16 @@
   }
 
   .tipo-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.8);
-    border-color: rgba(37, 99, 235, 0.55);
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
-  /* Marco azul marino: la comida con la que se está trabajando ahora mismo
-     (chat abierto). outline en vez de border más grueso para no mover el
-     layout de los botones vecinos al activarse/desactivarse. */
+  /* Marco negro: la comida con la que se está trabajando ahora mismo (chat
+     abierto). outline en vez de border más grueso para no mover el layout de
+     los botones vecinos al activarse/desactivarse. */
   .tipo-btn.activo {
-    border-color: #1e3a8a;
-    outline: 2px solid #1e3a8a;
+    border-color: var(--ink);
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 
@@ -817,8 +819,8 @@
   .card {
     padding: 1.1rem 1.3rem;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .card-head {
@@ -854,26 +856,27 @@
     flex-shrink: 0;
     font-weight: 700;
     font-size: 1.1rem;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
   }
 
-  /* Suma de todas las comidas visibles del día — fondo azul tenue para
-     distinguirla como el resumen de la página, no una tarjeta más. */
+  /* Suma de todas las comidas visibles del día — fondo volt para distinguirla
+     como el resumen de la página, no una tarjeta más (mismo acento que la
+     fila de "hoy" en Registro Diario). */
   .total-dia {
     display: flex;
     align-items: center;
     gap: 0.7rem;
     padding: 0.9rem 1.1rem;
     border-radius: 14px;
-    background: rgba(37, 99, 235, 0.1);
-    border: 1px solid rgba(37, 99, 235, 0.25);
+    background: rgba(215, 255, 61, 0.4);
+    border: 1px solid rgba(15, 15, 15, 0.15);
   }
 
   .total-dia-label {
     flex-shrink: 0;
     font-weight: 700;
     font-size: 0.95rem;
-    color: #1e3a8a;
+    color: var(--ink);
   }
 
   .total-dia-scroll {
@@ -904,16 +907,18 @@
     gap: 0.4rem;
     padding: 0.35rem 0.6rem;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    color: rgba(15, 23, 42, 0.75);
+    background: #ffffff;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
     width: fit-content;
     flex-shrink: 0;
     cursor: pointer;
   }
 
   .fecha-picker:hover {
-    background: rgba(255, 255, 255, 0.85);
+    background: var(--volt);
+    border-color: var(--volt);
+    color: var(--volt-ink);
   }
 
   .fecha-icon {
@@ -949,9 +954,9 @@
   .total-big {
     font-weight: 700;
     font-size: 1.05rem;
-    color: rgba(15, 23, 42, 0.85);
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    color: var(--ink);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 999px;
     padding: 0.3rem 0.6rem;
     white-space: nowrap;
@@ -963,9 +968,9 @@
   }
 
   .total-big.kcal {
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.14);
-    border-color: rgba(37, 99, 235, 0.35);
+    color: var(--ink);
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
   /* Quemadas: tono naranja/ámbar, para distinguirlas de las consumidas (azul). */
@@ -991,8 +996,8 @@
   .consumo {
     padding: 0.6rem 0.8rem;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .consumo-head {
@@ -1006,7 +1011,7 @@
   .consumo-platillo {
     font-weight: 600;
     font-size: 0.9rem;
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   .consumo-acciones {
@@ -1019,13 +1024,13 @@
     background: none;
     border: none;
     padding: 0.15rem;
-    color: rgba(15, 23, 42, 0.4);
+    color: rgba(15, 15, 15, 0.4);
     cursor: pointer;
     display: inline-flex;
   }
 
   .icon-btn:hover {
-    color: #1e3a8a;
+    color: var(--ink);
   }
 
   .confirmar-eliminar {
@@ -1093,17 +1098,17 @@
   .macro-mini {
     font-size: 0.78rem;
     font-weight: 600;
-    color: rgba(15, 23, 42, 0.65);
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    color: var(--ink-soft);
+    background: #ffffff;
+    border: 1px solid var(--line);
     border-radius: 999px;
     padding: 0.2rem 0.55rem;
   }
 
   .macro-mini.kcal {
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.14);
-    border-color: rgba(37, 99, 235, 0.35);
+    color: var(--ink);
+    background: var(--volt);
+    border-color: var(--volt);
   }
 
   .toggle-hint {
@@ -1114,8 +1119,8 @@
     border: none;
     font: inherit;
     font-size: 0.85rem;
-    font-weight: 600;
-    color: #2563eb;
+    font-weight: 700;
+    color: var(--ink);
     cursor: pointer;
   }
 
