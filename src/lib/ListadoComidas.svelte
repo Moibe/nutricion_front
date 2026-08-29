@@ -128,6 +128,14 @@
     return comidasVisibles.some((c) => c.tipo === tipo && c.orden === orden && c.consumos.length > 0);
   }
 
+  // Comida con la que se está trabajando ahora mismo (chat abierto, ya sea
+  // agregando un consumo nuevo o reeditando uno existente) — expandedId es la
+  // misma fuente de verdad para ambos casos. Se usa para enmarcar su botón.
+  const comidaActiva = $derived(comidasVisibles.find((c) => c.id === expandedId) ?? null);
+  function esActivo(tipo: string, orden: number): boolean {
+    return comidaActiva !== null && comidaActiva.tipo === tipo && comidaActiva.orden === orden;
+  }
+
   // Total del día: solo tiene sentido cuando comidasVisibles ya está acotado
   // a UN solo día (soloHoy o fechaFiltro) — sumar varios días mezclados sería
   // engañoso.
@@ -410,6 +418,7 @@
       <button
         type="button"
         class="tipo-btn"
+        class:activo={esActivo(t.tipo, i)}
         onclick={() => crearComida(t.label, t.tipo, i)}
         disabled={creando !== null}
       >
@@ -783,6 +792,15 @@
   .tipo-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.8);
     border-color: rgba(37, 99, 235, 0.55);
+  }
+
+  /* Marco azul marino: la comida con la que se está trabajando ahora mismo
+     (chat abierto). outline en vez de border más grueso para no mover el
+     layout de los botones vecinos al activarse/desactivarse. */
+  .tipo-btn.activo {
+    border-color: #1e3a8a;
+    outline: 2px solid #1e3a8a;
+    outline-offset: 2px;
   }
 
   .tipo-btn:disabled {
