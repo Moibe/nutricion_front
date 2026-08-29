@@ -8,6 +8,10 @@
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
+  // Misma zona horaria que usa el resto de la app para "hoy" (CDMX), para
+  // marcar el renglón de hoy con las flechitas animadas.
+  const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+
   type Consumo = { kilocalorias: number | null };
   type Comida = { fecha: string; consumos: Consumo[] };
   type MetricaIos = { fecha: string; tipo: string; valor: number };
@@ -138,8 +142,16 @@
   {:else}
     <div class="filas">
       {#each filas as f (f.fecha)}
-        <div class="dia-card">
-          <span class="dia-fecha">{formatoFechaLarga(f.fecha)}</span>
+        <div class="dia-card" class:hoy={f.fecha === hoyISO}>
+          <span class="dia-fecha">
+            {#if f.fecha === hoyISO}
+              <span class="hoy-flecha hoy-flecha-in" aria-hidden="true">»</span>
+            {/if}
+            {formatoFechaLarga(f.fecha)}
+            {#if f.fecha === hoyISO}
+              <span class="hoy-flecha hoy-flecha-out" aria-hidden="true">«</span>
+            {/if}
+          </span>
           <div class="dia-scroll">
             <span class="pill peso">{f.peso !== null ? `${fmt(f.peso)} kg` : '— kg'}</span>
             <span class="pill basal"
@@ -214,6 +226,58 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  .dia-card.hoy {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+
+  /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
+     glifo que pulsa acercándose al texto que señala. Acá van dos, uno de
+     cada lado de la fecha de hoy, apuntando los dos hacia el centro. */
+  .hoy-flecha {
+    display: inline-flex;
+    color: #f59e0b;
+    font-size: 1.15rem;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
+    user-select: none;
+  }
+
+  .hoy-flecha-in {
+    margin-right: 0.3rem;
+    animation: hoy-flecha-in-pulso 1.2s ease-in-out infinite;
+  }
+
+  .hoy-flecha-out {
+    margin-left: 0.3rem;
+    animation: hoy-flecha-out-pulso 1.2s ease-in-out infinite;
+  }
+
+  @keyframes hoy-flecha-in-pulso {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(4px);
+      opacity: 1;
+    }
+  }
+
+  @keyframes hoy-flecha-out-pulso {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(-4px);
+      opacity: 1;
+    }
   }
 
   .dia-fecha {
