@@ -142,8 +142,8 @@
   });
 </script>
 
-<section class="totales-page">
-  <h1>Totales</h1>
+<section class="registro-page">
+  <h1>Registro Diario</h1>
   <p class="sub">Consumidas − (basales + ejercitadas) = superávit o déficit del día.</p>
 
   {#if error}
@@ -168,7 +168,7 @@
         <span class="hoy-flecha hoy-flecha-out" style="top: {flechaTop}px" aria-hidden="true">«</span>
       {/if}
       <div class="tabla-scroll">
-        <table class="tabla-totales">
+        <table class="tabla-registro">
           <thead>
             <tr>
               <th class="col-fecha">Fecha</th>
@@ -220,7 +220,7 @@
 </section>
 
 <style>
-  .totales-page {
+  .registro-page {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
@@ -278,27 +278,27 @@
     background: rgba(255, 255, 255, 0.55);
   }
 
-  .tabla-totales {
+  .tabla-registro {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
     white-space: nowrap;
   }
 
-  .tabla-totales th,
-  .tabla-totales td {
+  .tabla-registro th,
+  .tabla-registro td {
     padding: 0.55rem 0.9rem;
     border-bottom: 1px solid rgba(15, 23, 42, 0.1);
     border-right: 1px solid rgba(15, 23, 42, 0.08);
     text-align: right;
   }
 
-  .tabla-totales th:last-child,
-  .tabla-totales td:last-child {
+  .tabla-registro th:last-child,
+  .tabla-registro td:last-child {
     border-right: none;
   }
 
-  .tabla-totales tbody tr:last-child td {
+  .tabla-registro tbody tr:last-child td {
     border-bottom: none;
   }
 
@@ -306,7 +306,7 @@
     text-align: left;
   }
 
-  .tabla-totales thead th {
+  .tabla-registro thead th {
     background: rgba(15, 23, 42, 0.04);
     font-weight: 700;
     font-size: 0.7rem;
@@ -315,27 +315,27 @@
     color: rgba(15, 23, 42, 0.55);
   }
 
-  .tabla-totales thead th.col-peso {
+  .tabla-registro thead th.col-peso {
     color: #6d28d9;
   }
 
-  .tabla-totales thead th.col-comidas {
+  .tabla-registro thead th.col-comidas {
     color: #1e3a8a;
   }
 
-  .tabla-totales thead th.col-ejercicio {
+  .tabla-registro thead th.col-ejercicio {
     color: #9a3412;
   }
 
-  .tabla-totales tbody tr:nth-child(even) {
+  .tabla-registro tbody tr:nth-child(even) {
     background: rgba(15, 23, 42, 0.02);
   }
 
-  .tabla-totales tbody tr.hoy {
+  .tabla-registro tbody tr.hoy {
     background: rgba(245, 158, 11, 0.12);
   }
 
-  .tabla-totales tbody td {
+  .tabla-registro tbody td {
     font-variant-numeric: tabular-nums;
     color: rgba(15, 23, 42, 0.85);
   }

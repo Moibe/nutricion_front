@@ -7,8 +7,8 @@
   //
   // ?fecha=YYYY-MM-DD (opcional, en la URL): permite capturar/corregir el
   // peso de un día PASADO, no solo hoy — así puede llegar directo desde una
-  // celda vacía de /totales. Sin el parámetro (el link del sidebar "Peso
-  // Hoy"), se comporta igual que siempre: hoy.
+  // celda vacía de /registro-diario. Sin el parámetro (el link del sidebar
+  // "Peso Hoy"), se comporta igual que siempre: hoy.
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
 

@@ -58,6 +58,27 @@
 </script>
 
 {#snippet navLinks()}
+  <a
+    href="/registro-diario"
+    class="nav-item"
+    aria-current={isActive('/registro-diario') ? 'page' : undefined}
+  >
+    <svg
+      class="nav-ico registro"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <rect x="9" y="2" width="6" height="4" rx="1" />
+      <path d="M9 12h6M9 16h6M9 20h3" />
+    </svg>
+    <span>Registro Diario</span>
+  </a>
   <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
     <svg
       class="nav-ico calendario"
@@ -121,22 +142,6 @@
       <path d="M3 12h4l2-7 4 14 2-7h6" />
     </svg>
     <span>Ejercicio Hoy</span>
-  </a>
-  <a href="/totales" class="nav-item" aria-current={isActive('/totales') ? 'page' : undefined}>
-    <svg
-      class="nav-ico totales"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M3 10h18M9 10v10" />
-    </svg>
-    <span>Totales</span>
   </a>
 {/snippet}
 
@@ -286,7 +291,7 @@
     color: rgba(124, 58, 237, 0.75);
   }
 
-  .nav-ico.totales {
+  .nav-ico.registro {
     color: rgba(219, 39, 119, 0.75);
   }
 
@@ -317,7 +322,7 @@
     color: #7c3aed;
   }
 
-  .nav-item[aria-current='page'] .nav-ico.totales {
+  .nav-item[aria-current='page'] .nav-ico.registro {
     color: #db2777;
   }
 
