@@ -423,7 +423,12 @@
          está vacío), para poder agregar una 2ª/3ª comida al mismo día — tanto
          en /hoy como en /calendario (ahí crean en fechaFiltro, no en hoy). -->
     {#if soloHoy}
-      <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+      <div class="hoy-fila">
+        <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+        {#if filaPesoDia}
+          <p class="peso-dia">Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong></p>
+        {/if}
+      </div>
     {/if}
     {@render botonesCrear()}
   {/if}
@@ -444,7 +449,7 @@
     </div>
   {/if}
 
-  {#if mostrarTotalDia && !cargando && !error && filaPesoDia}
+  {#if fechaFiltro && !cargando && !error && filaPesoDia}
     <p class="peso-dia">Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong></p>
   {/if}
 
@@ -691,6 +696,14 @@
     margin: 0;
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.95rem;
+  }
+
+  .hoy-fila {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
   }
 
   .hoy {
