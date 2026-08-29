@@ -1,0 +1,225 @@
+<script lang="ts">
+  // Captura manual del peso del día (complemento al Atajo de iOS): un campo
+  // + botón Guardar que hacen upsert directo a POST /metricas-ios
+  // (tipo=peso), el mismo "cachador" genérico que usa el Atajo. Si ya hay un
+  // valor guardado hoy (por el Atajo o por esta misma página antes), se
+  // precarga en el campo en vez de arrancar vacío.
+  import { env } from '$env/dynamic/public';
+
+  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+
+  // Misma zona horaria que usa el resto de la app para "hoy" (CDMX).
+  const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+  const hoyLargoRaw = new Date().toLocaleDateString('es-MX', {
+    timeZone: 'America/Mexico_City',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
+
+  let peso = $state('');
+  let cargando = $state(true);
+  let guardando = $state(false);
+  let guardado = $state(false);
+  let error = $state<string | null>(null);
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/metricas-ios`);
+        if (res.ok) {
+          const datos = (await res.json()) as { fecha: string; tipo: string; valor: number }[];
+          const deHoy = datos.find((m) => m.fecha === hoyISO && m.tipo === 'peso');
+          if (deHoy) peso = String(deHoy.valor);
+        }
+      } catch {
+        // Si falla la carga, simplemente arranca vacío — no bloquea poder capturar.
+      } finally {
+        cargando = false;
+      }
+    })();
+  });
+
+  async function guardar() {
+    const valor = Number(peso);
+    if (!peso || Number.isNaN(valor) || valor <= 0) {
+      error = 'Ingresa un peso válido.';
+      return;
+    }
+    guardando = true;
+    error = null;
+    try {
+      const res = await fetch(`${API_URL}/metricas-ios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'peso', fecha: hoyISO, valor, fuente: 'manual' })
+      });
+      if (!res.ok) {
+        const detalle = await res.json().catch(() => null);
+        throw new Error(detalle?.detail ?? `HTTP ${res.status}`);
+      }
+      guardado = true;
+    } catch (e) {
+      error =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      guardando = false;
+    }
+  }
+</script>
+
+<section class="peso-page">
+  <h1>Peso</h1>
+  <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+
+  {#if error}
+    <div class="error">⚠️ {error}</div>
+  {/if}
+
+  {#if cargando}
+    <p class="estado">Cargando…</p>
+  {:else}
+    <div class="card">
+      <label for="peso-input">Peso de hoy (kg)</label>
+      <div class="fila-input">
+        <input
+          id="peso-input"
+          type="number"
+          inputmode="decimal"
+          step="0.1"
+          min="0"
+          placeholder="Ej. 74.5"
+          bind:value={peso}
+          oninput={() => (guardado = false)}
+          onkeydown={(e) => e.key === 'Enter' && guardar()}
+        />
+        <button type="button" onclick={guardar} disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+      </div>
+      {#if guardado}
+        <p class="ok">✓ Guardado</p>
+      {/if}
+    </div>
+  {/if}
+</section>
+
+<style>
+  .peso-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    max-width: 640px;
+    margin: 0 auto;
+    color: rgba(15, 23, 42, 0.9);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    color: rgba(15, 23, 42, 0.95);
+  }
+
+  .hoy {
+    margin: 0;
+    font-size: 0.95rem;
+    color: rgba(15, 23, 42, 0.65);
+  }
+
+  .hoy strong {
+    color: rgba(15, 23, 42, 0.9);
+  }
+
+  .estado {
+    margin: 0;
+    color: rgba(15, 23, 42, 0.6);
+    font-size: 0.95rem;
+  }
+
+  .card {
+    padding: 1.1rem 1.3rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  .fila-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  input {
+    flex: 1;
+    min-width: 140px;
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    background: rgba(255, 255, 255, 0.7);
+    font: inherit;
+    font-size: 1rem;
+    color: rgba(15, 23, 42, 0.95);
+  }
+
+  input:focus {
+    outline: none;
+    border-color: rgba(37, 99, 235, 0.5);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  button {
+    flex-shrink: 0;
+    padding: 0.7rem 1.3rem;
+    border-radius: 10px;
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    background: #2563eb;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      opacity 0.18s ease;
+  }
+
+  button:hover:not(:disabled) {
+    background: #1d4fd1;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .ok {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #166534;
+  }
+
+  .error {
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.35);
+    color: #991b1b;
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.88rem;
+  }
+</style>

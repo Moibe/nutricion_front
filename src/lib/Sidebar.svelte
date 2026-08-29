@@ -74,6 +74,23 @@
     </svg>
     <span>Calendario</span>
   </a>
+  <a href="/peso" class="nav-item" aria-current={isActive('/peso') ? 'page' : undefined}>
+    <svg
+      class="nav-ico"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <circle cx="12" cy="13" r="4" />
+      <path d="M12 13l1.8-1.8" />
+    </svg>
+    <span>Peso Hoy</span>
+  </a>
   <a href="/hoy" class="nav-item" aria-current={isActive('/hoy') ? 'page' : undefined}>
     <svg
       class="nav-ico"
