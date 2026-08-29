@@ -25,6 +25,18 @@
   let guardado = $state(false);
   let error = $state<string | null>(null);
 
+  // Perfil (fecha de nacimiento/estatura/sexo) para calcular metabolismo
+  // basal junto al peso. null = todavía no se ha capturado (primera vez).
+  type Perfil = { fecha_nacimiento: string; estatura_cm: number; sexo: 'hombre' | 'mujer' };
+  let perfil = $state<Perfil | null>(null);
+  let perfilCargado = $state(false);
+  let mostrarFormPerfil = $state(false);
+  let fechaNacimientoInput = $state('');
+  let estaturaInput = $state('');
+  let sexoInput = $state<'hombre' | 'mujer'>('hombre');
+  let guardandoPerfil = $state(false);
+  let errorPerfil = $state<string | null>(null);
+
   $effect(() => {
     (async () => {
       try {
@@ -41,6 +53,97 @@
       }
     })();
   });
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/perfil`);
+        if (res.ok) {
+          const datos = await res.json();
+          if (datos) {
+            perfil = datos as Perfil;
+            fechaNacimientoInput = datos.fecha_nacimiento;
+            estaturaInput = String(datos.estatura_cm);
+            sexoInput = datos.sexo;
+          }
+        }
+      } catch {
+        // Best-effort: si falla, simplemente no se muestra el metabolismo basal.
+      } finally {
+        perfilCargado = true;
+      }
+    })();
+  });
+
+  // Edad calculada al vuelo desde fecha_nacimiento, no guardada como número
+  // fijo (la edad cambia con el tiempo, un número guardado se volvería viejo).
+  function calcularEdad(fechaNacimiento: string, hoyStr: string): number {
+    const [an, mn, dn] = fechaNacimiento.split('-').map(Number);
+    const [ah, mh, dh] = hoyStr.split('-').map(Number);
+    let edad = ah - an;
+    if (mh < mn || (mh === mn && dh < dn)) edad--;
+    return edad;
+  }
+
+  const pesoNumerico = $derived(peso === '' || peso === null || peso === undefined ? null : Number(peso));
+
+  // Metabolismo basal (Mifflin-St Jeor) con el peso que esté en el campo en
+  // este momento (aunque no se haya guardado todavía) + el perfil.
+  const bmr = $derived.by(() => {
+    if (!perfil || pesoNumerico === null || Number.isNaN(pesoNumerico) || pesoNumerico <= 0) return null;
+    const edad = calcularEdad(perfil.fecha_nacimiento, hoyISO);
+    const base = 10 * pesoNumerico + 6.25 * perfil.estatura_cm - 5 * edad;
+    return Math.round(perfil.sexo === 'hombre' ? base + 5 : base - 161);
+  });
+
+  function extraerError(detalle: unknown, fallback: string): string {
+    const d = (detalle as { detail?: unknown } | null)?.detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d) && d[0] && typeof d[0] === 'object' && 'msg' in d[0]) {
+      return String((d[0] as { msg: unknown }).msg);
+    }
+    return fallback;
+  }
+
+  async function guardarPerfil() {
+    if (!fechaNacimientoInput) {
+      errorPerfil = 'Ingresa tu fecha de nacimiento.';
+      return;
+    }
+    const estatura = Number(estaturaInput);
+    if (estaturaInput === '' || Number.isNaN(estatura) || estatura <= 0) {
+      errorPerfil = 'Ingresa una estatura válida.';
+      return;
+    }
+    guardandoPerfil = true;
+    errorPerfil = null;
+    try {
+      const res = await fetch(`${API_URL}/perfil`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha_nacimiento: fechaNacimientoInput,
+          estatura_cm: estatura,
+          sexo: sexoInput
+        })
+      });
+      if (!res.ok) {
+        const detalle = await res.json().catch(() => null);
+        throw new Error(extraerError(detalle, `HTTP ${res.status}`));
+      }
+      perfil = (await res.json()) as Perfil;
+      mostrarFormPerfil = false;
+    } catch (e) {
+      errorPerfil =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      guardandoPerfil = false;
+    }
+  }
 
   async function guardar() {
     // bind:value en <input type="number"> guarda un NÚMERO, no texto — por
@@ -65,7 +168,7 @@
       });
       if (!res.ok) {
         const detalle = await res.json().catch(() => null);
-        throw new Error(detalle?.detail ?? `HTTP ${res.status}`);
+        throw new Error(extraerError(detalle, `HTTP ${res.status}`));
       }
       guardado = true;
     } catch (e) {
@@ -114,6 +217,77 @@
         <p class="ok">✓ Guardado</p>
       {/if}
     </div>
+
+    {#if !perfilCargado}
+      <!-- Sin estado de carga propio: si tarda, simplemente no aparece nada
+           todavía en vez de un "Cargando…" aparte que compita con el de arriba. -->
+    {:else if mostrarFormPerfil}
+      <div class="card">
+        <p class="perfil-intro">
+          Para calcular tu metabolismo basal necesito estos 3 datos (una sola vez):
+        </p>
+
+        {#if errorPerfil}
+          <div class="error">⚠️ {errorPerfil}</div>
+        {/if}
+
+        <label for="fecha-nacimiento-input">Fecha de nacimiento</label>
+        <input id="fecha-nacimiento-input" type="date" max={hoyISO} bind:value={fechaNacimientoInput} />
+
+        <label for="estatura-input">Estatura (cm)</label>
+        <input
+          id="estatura-input"
+          type="number"
+          inputmode="decimal"
+          step="1"
+          min="0"
+          placeholder="Ej. 175"
+          bind:value={estaturaInput}
+        />
+
+        <label for="sexo-input">Sexo</label>
+        <select id="sexo-input" bind:value={sexoInput}>
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+        </select>
+
+        <div class="fila-input">
+          <button type="button" onclick={guardarPerfil} disabled={guardandoPerfil}>
+            {guardandoPerfil ? 'Guardando…' : 'Guardar perfil'}
+          </button>
+          {#if perfil}
+            <button
+              type="button"
+              class="secundario"
+              onclick={() => (mostrarFormPerfil = false)}
+              disabled={guardandoPerfil}
+            >
+              Cancelar
+            </button>
+          {/if}
+        </div>
+      </div>
+    {:else if !perfil}
+      <div class="card">
+        <p class="perfil-intro">
+          Para calcular tu metabolismo basal necesito tu fecha de nacimiento, estatura y sexo.
+        </p>
+        <button type="button" onclick={() => (mostrarFormPerfil = true)}>Completar perfil</button>
+      </div>
+    {:else}
+      <div class="card">
+        {#if bmr !== null}
+          <p class="bmr">
+            Metabolismo basal (reposo): <strong>{bmr.toLocaleString('es-MX')} kcal/día</strong>
+          </p>
+        {:else}
+          <p class="estado">Captura tu peso arriba para ver tu metabolismo basal.</p>
+        {/if}
+        <button type="button" class="link-btn" onclick={() => (mostrarFormPerfil = true)}>
+          Editar perfil
+        </button>
+      </div>
+    {/if}
   {/if}
 </section>
 
@@ -183,10 +357,37 @@
     color: rgba(15, 23, 42, 0.95);
   }
 
-  input:focus {
+  input:focus,
+  select:focus {
     outline: none;
     border-color: rgba(37, 99, 235, 0.5);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  select {
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    background: rgba(255, 255, 255, 0.7);
+    font: inherit;
+    font-size: 1rem;
+    color: rgba(15, 23, 42, 0.95);
+  }
+
+  .perfil-intro {
+    margin: 0;
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  .bmr {
+    margin: 0;
+    font-size: 0.95rem;
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  .bmr strong {
+    color: #1e3a8a;
   }
 
   button {
@@ -212,6 +413,31 @@
   button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  button.secundario {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  button.secundario:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  button.link-btn {
+    align-self: flex-start;
+    padding: 0;
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  button.link-btn:hover:not(:disabled) {
+    background: none;
+    text-decoration: underline;
   }
 
   .ok {
