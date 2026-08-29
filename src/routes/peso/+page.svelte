@@ -200,11 +200,12 @@
       <div class="fila-input">
         <input
           id="peso-input"
+          class="input-peso"
           type="number"
           inputmode="decimal"
           step="0.1"
           min="0"
-          placeholder="Ej. 74.5"
+          placeholder="74.5"
           bind:value={peso}
           oninput={() => (guardado = false)}
           onkeydown={(e) => e.key === 'Enter' && guardar()}
@@ -355,6 +356,27 @@
     font: inherit;
     font-size: 1rem;
     color: rgba(15, 23, 42, 0.95);
+  }
+
+  /* Angosto a propósito: solo el espacio para algo como "74.50" (2 dígitos +
+     punto + 2 decimales), no la barra larga de antes. box-sizing: border-box
+     es necesario para que width se respete de verdad (si no, el padding/
+     borde del input global lo pasan de 100px reales — mismo bug que ya
+     salió en /ejercicio). Sin flechitas de spinner: en un campo tan angosto
+     solo apachurran el número. */
+  .input-peso {
+    box-sizing: border-box;
+    flex: 0 0 100px;
+    min-width: 0;
+    width: 100px;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .input-peso::-webkit-outer-spin-button,
+  .input-peso::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 
   input:focus,
