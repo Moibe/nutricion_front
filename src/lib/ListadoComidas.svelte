@@ -120,6 +120,14 @@
         : comidas
   );
 
+  // Para la palomita en los botones de crear: ¿ya hay algo capturado en esa
+  // posición (tipo+orden, para distinguir Colación 1 de Colación 2) del día
+  // en turno? Cascarones sin consumo (chat abierto pero nada guardado) no
+  // cuentan — "capturado" es que ya tenga al menos un consumo real.
+  function tieneCaptura(tipo: string, orden: number): boolean {
+    return comidasVisibles.some((c) => c.tipo === tipo && c.orden === orden && c.consumos.length > 0);
+  }
+
   // Total del día: solo tiene sentido cuando comidasVisibles ya está acotado
   // a UN solo día (soloHoy o fechaFiltro) — sumar varios días mezclados sería
   // engañoso.
@@ -406,6 +414,13 @@
         disabled={creando !== null}
       >
         {creando === t.label ? '…' : t.label}
+        {#if tieneCaptura(t.tipo, i)}
+          <span class="tipo-check" aria-hidden="true">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+        {/if}
       </button>
     {/each}
   </div>
@@ -733,6 +748,7 @@
   }
 
   .tipo-btn {
+    position: relative;
     flex: 1;
     min-width: 110px;
     padding: 0.8rem 1rem;
@@ -747,6 +763,21 @@
     transition:
       background 0.18s ease,
       border-color 0.18s ease;
+  }
+
+  .tipo-check {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #16a34a;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
   }
 
   .tipo-btn:hover:not(:disabled) {
