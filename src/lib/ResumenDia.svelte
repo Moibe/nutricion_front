@@ -97,6 +97,22 @@
     <p class="estado">Cargando…</p>
   {:else}
     <div class="filas">
+      <a class="fila" href="/peso?fecha={fecha}">
+        <span class="ico-wrap" class:vacio={peso === null}>
+          <svg class="ico peso" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="17" rx="2" />
+            <circle cx="12" cy="13" r="4" />
+            <path d="M12 13l1.8-1.8" />
+          </svg>
+          {#if peso !== null}{@render check()}{/if}
+        </span>
+        <span class="fila-texto">
+          <span class="fila-label">Peso</span>
+          <span class="fila-valor">{peso !== null ? `${fmt(peso)} kg` : 'Sin capturar'}</span>
+        </span>
+        <span class="fila-flecha" aria-hidden="true">›</span>
+      </a>
+
       <a class="fila" href="/hoy?fecha={fecha}">
         <span class="ico-wrap" class:vacio={kcalComidas === null}>
           <svg class="ico comida" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -128,22 +144,6 @@
           <span class="fila-valor">
             {kcalEjercicio !== null ? `${fmt(kcalEjercicio)} kcal quemadas` : 'Sin capturar'}
           </span>
-        </span>
-        <span class="fila-flecha" aria-hidden="true">›</span>
-      </a>
-
-      <a class="fila" href="/peso?fecha={fecha}">
-        <span class="ico-wrap" class:vacio={peso === null}>
-          <svg class="ico peso" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="17" rx="2" />
-            <circle cx="12" cy="13" r="4" />
-            <path d="M12 13l1.8-1.8" />
-          </svg>
-          {#if peso !== null}{@render check()}{/if}
-        </span>
-        <span class="fila-texto">
-          <span class="fila-label">Peso</span>
-          <span class="fila-valor">{peso !== null ? `${fmt(peso)} kg` : 'Sin capturar'}</span>
         </span>
         <span class="fila-flecha" aria-hidden="true">›</span>
       </a>
