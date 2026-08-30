@@ -270,6 +270,17 @@
     });
   }
 
+  // Sin año: para la píldora compacta de la fila colapsada, donde cada pixel
+  // ya cuenta junto al label + 4 chips — la tarjeta expandida sigue
+  // mostrando el año completo (formatoFecha arriba).
+  function formatoFechaCorta(fecha: string) {
+    const [y, m, d] = fecha.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'short'
+    });
+  }
+
   // Cambia la fecha de una comida (input de calendario). Optimista con
   // rollback si el PATCH falla. En /hoy, cambiar la fecha a otro día saca la
   // tarjeta de la vista (comidasVisibles se recomputa) — comportamiento
@@ -477,6 +488,46 @@
   </div>
 {/snippet}
 
+{#snippet fechaPicker(c: Comida, compacto = false)}
+  <div class="fecha-picker" class:compacta={compacto}>
+    {#if !compacto}
+      <svg
+        class="fecha-icon"
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </svg>
+    {/if}
+    <span class="fecha-larga">{compacto ? formatoFechaCorta(c.fecha) : formatoFecha(c.fecha)}</span>
+    <!-- Input REAL transparente que cubre toda la píldora: un tap directo
+         abre el picker nativo (lo confiable en mobile). showPicker() es
+         solo refuerzo para desktop; si falla, el tap igual funciona. -->
+    <input
+      type="date"
+      class="fecha-input"
+      aria-label="Cambiar fecha de esta comida"
+      value={c.fecha}
+      onclick={(e) => {
+        try {
+          (e.currentTarget as HTMLInputElement).showPicker?.();
+        } catch {
+          /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
+        }
+      }}
+      onchange={(e) => cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
+    />
+  </div>
+{/snippet}
+
 <section class="listado">
   <h1>{titulo}</h1>
 
@@ -540,14 +591,20 @@
                 <span class="total-big macro">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
                 <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
               </div>
+              <!-- Replegada: la fecha vive en esta MISMA fila (con lo demás,
+                   deslizable) para que la tarjeta ocupe un solo renglón —
+                   expandida, sigue abajo en su propia fila (más aire, ver
+                   .card-sub). -->
+              {#if !soloHoy && estaColapsada(c.id)}
+                {@render fechaPicker(c, true)}
+              {/if}
             </div>
-            {#if c.id !== expandedId}
+            <div class="card-head-acciones">
               <button
                 type="button"
-                class="icon-btn card-chevron"
-                class:colapsada={estaColapsada(c.id)}
-                onclick={() => toggleColapso(c.id)}
-                aria-label={estaColapsada(c.id) ? 'Mostrar esta comida' : 'Replegar esta comida'}
+                class="icon-btn card-borrar"
+                onclick={() => (confirmandoEliminarComida = c.id)}
+                aria-label="Eliminar esta comida completa"
               >
                 <svg
                   width="16"
@@ -559,30 +616,33 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path d="m6 9 6 6 6-6" />
+                  <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+                  <path d="M10 11v6M14 11v6" />
                 </svg>
               </button>
-            {/if}
-            <button
-              type="button"
-              class="icon-btn card-borrar"
-              onclick={() => (confirmandoEliminarComida = c.id)}
-              aria-label="Eliminar esta comida completa"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
-                <path d="M10 11v6M14 11v6" />
-              </svg>
-            </button>
+              {#if c.id !== expandedId}
+                <button
+                  type="button"
+                  class="icon-btn card-chevron"
+                  class:colapsada={estaColapsada(c.id)}
+                  onclick={() => toggleColapso(c.id)}
+                  aria-label={estaColapsada(c.id) ? 'Mostrar esta comida' : 'Replegar esta comida'}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              {/if}
+            </div>
           </div>
 
           {#if confirmandoEliminarComida === c.id}
@@ -609,45 +669,9 @@
             </div>
           {/if}
 
-          {#if !soloHoy}
+          {#if !soloHoy && !estaColapsada(c.id)}
             <div class="card-sub">
-              <div class="fecha-picker">
-                <svg
-                  class="fecha-icon"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M16 2v4M8 2v4M3 10h18" />
-                </svg>
-                <span class="fecha-larga">{formatoFecha(c.fecha)}</span>
-                <!-- Input REAL transparente que cubre toda la píldora: un tap
-                     directo abre el picker nativo (lo confiable en mobile).
-                     showPicker() es solo refuerzo para desktop; si falla, el
-                     tap igual funciona. -->
-                <input
-                  type="date"
-                  class="fecha-input"
-                  aria-label="Cambiar fecha de esta comida"
-                  value={c.fecha}
-                  onclick={(e) => {
-                    try {
-                      (e.currentTarget as HTMLInputElement).showPicker?.();
-                    } catch {
-                      /* mobile: el tap ya abrió el picker; showPicker puede lanzar */
-                    }
-                  }}
-                  onchange={(e) =>
-                    cambiarFecha(c.id, e.currentTarget.value, e.currentTarget as HTMLInputElement)}
-                />
-              </div>
+              {@render fechaPicker(c)}
             </div>
           {/if}
 
@@ -908,10 +932,24 @@
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    /* Aire al final del contenido deslizable: sin esto, el último chip (o la
+       fecha) queda pegado a card-head-acciones (fijo, fuera del scroll) en
+       cuanto se recorta — se ve como si chocaran. */
+    padding-right: 0.4rem;
   }
 
   .card-head-scroll::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Bote + chevron agrupados: así .card-head (space-between) los trata como
+     UN solo bloque fijo a la derecha, en vez de repartir espacio extra entre
+     los tres — el chevron queda pegado al bote, ambos hasta el borde. */
+  .card-head-acciones {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
   }
 
   .card-borrar {
@@ -944,8 +982,9 @@
      fila de "hoy" en Registro Diario). */
   .total-dia {
     display: flex;
-    align-items: center;
-    gap: 0.7rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 0.7rem;
     padding: 0.9rem 1.1rem;
     border-radius: 14px;
     background: rgba(215, 255, 61, 0.4);
@@ -959,19 +998,17 @@
     color: var(--ink);
   }
 
+  /* A diferencia de .card-head-scroll (que sí se desliza — ahí cabe MUCHO
+     más contenido variable), aquí se prefiere que los chips bajen a una
+     siguiente línea en vez de recortarse o esconderse detrás de un scroll
+     que no se nota que existe. */
   .total-dia-scroll {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .total-dia-scroll::-webkit-scrollbar {
-    display: none;
+    flex: 1;
+    flex-wrap: wrap;
   }
 
   .card-sub {
@@ -1001,6 +1038,14 @@
     color: var(--volt-ink);
   }
 
+  /* Versión angosta: junto al label + 4 chips en la fila colapsada, cada
+     pixel cuenta — sin ícono y con menos padding que la versión de
+     .card-sub (esa sí tiene toda una fila para ella sola). */
+  .fecha-picker.compacta {
+    gap: 0;
+    padding: 0.3rem 0.5rem;
+  }
+
   .fecha-icon {
     flex-shrink: 0;
   }
@@ -1008,6 +1053,10 @@
   .fecha-larga {
     font-size: 0.85rem;
     white-space: nowrap;
+  }
+
+  .fecha-picker.compacta .fecha-larga {
+    font-size: 0.78rem;
   }
 
   /* Input date REAL cubriendo toda la píldora, transparente pero tappable
