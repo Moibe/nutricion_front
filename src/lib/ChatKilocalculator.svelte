@@ -308,6 +308,7 @@
               {#if savedIdx.has(i)}
                 <span class="saved">Guardado ✓</span>
               {:else}
+                <span class="guardar-flecha guardar-flecha-in" aria-hidden="true">»</span>
                 <button
                   type="button"
                   class="save-btn"
@@ -316,6 +317,7 @@
                 >
                   {savingIdx === i ? 'Guardando…' : 'Guardar'}
                 </button>
+                <span class="guardar-flecha guardar-flecha-out" aria-hidden="true">«</span>
               {/if}
             </div>
           {/if}
@@ -539,6 +541,53 @@
 
   .save-row {
     margin-top: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui (ya
+     reusado en Registro Diario para la fila de hoy): un glifo que pulsa
+     acercándose a lo que señala — acá, el botón de Guardar, para que no se
+     pase por alto. Solo vive mientras el botón existe (desaparece junto con
+     él al guardar). */
+  .guardar-flecha {
+    display: inline-flex;
+    color: var(--ink);
+    font-weight: 900;
+    user-select: none;
+  }
+
+  .guardar-flecha-in {
+    animation: guardar-flecha-in-pulso 1.2s ease-in-out infinite;
+  }
+
+  .guardar-flecha-out {
+    animation: guardar-flecha-out-pulso 1.2s ease-in-out infinite;
+  }
+
+  @keyframes guardar-flecha-in-pulso {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(4px);
+      opacity: 1;
+    }
+  }
+
+  @keyframes guardar-flecha-out-pulso {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(-4px);
+      opacity: 1;
+    }
   }
 
   /* CTA principal del panel de resultado: volt sólido + texto negro. */
