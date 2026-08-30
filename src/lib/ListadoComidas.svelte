@@ -102,6 +102,22 @@
   // abre en modo "agregar nuevo"; si no, reabre esa conversación puntual.
   let expandedId = $state<number | null>(null);
   let editandoConsumo = $state<Consumo | null>(null);
+  // Acordeón: en cuanto hay una comida activa, las DEMÁS se repliegan (solo
+  // header + fecha) para no competir visualmente con la que estás llenando.
+  // La activa nunca se repliega. colapsoManual guarda overrides explícitos
+  // del chevron (persisten aunque cambies de comida activa — "quiero ver
+  // esta aunque no sea con la que trabajo" es una decisión que se respeta).
+  let colapsoManual = $state<Record<number, boolean>>({});
+
+  function estaColapsada(comidaId: number): boolean {
+    if (comidaId === expandedId) return false;
+    if (comidaId in colapsoManual) return colapsoManual[comidaId];
+    return expandedId !== null;
+  }
+
+  function toggleColapso(comidaId: number) {
+    colapsoManual = { ...colapsoManual, [comidaId]: !estaColapsada(comidaId) };
+  }
   // Eliminar consumo: confirmación inline (id del consumo pendiente) para no
   // borrar por accidente; el id "en vuelo" mientras corre el DELETE.
   let confirmandoEliminar = $state<number | null>(null);
@@ -524,6 +540,28 @@
                 <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
               </div>
             </div>
+            {#if c.id !== expandedId}
+              <button
+                type="button"
+                class="icon-btn card-chevron"
+                class:colapsada={estaColapsada(c.id)}
+                onclick={() => toggleColapso(c.id)}
+                aria-label={estaColapsada(c.id) ? 'Mostrar esta comida' : 'Replegar esta comida'}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+            {/if}
             <button
               type="button"
               class="icon-btn card-borrar"
@@ -612,6 +650,7 @@
             </div>
           {/if}
 
+          {#if !estaColapsada(c.id)}
           <div class="consumos">
             {#each c.consumos as x (x.id)}
               <div class="consumo">
@@ -718,6 +757,7 @@
                 onGuardado={(r) => onConsumoGuardado(c.id, r)}
               />
             </div>
+          {/if}
           {/if}
         </div>
       {/each}
@@ -875,6 +915,20 @@
 
   .card-borrar {
     flex-shrink: 0;
+  }
+
+  /* Chevron del acordeón: apunta hacia abajo (expandida) o gira 90° hacia la
+     derecha (replegada) — mismo giro que un <details> nativo. */
+  .card-chevron {
+    flex-shrink: 0;
+  }
+
+  .card-chevron svg {
+    transition: transform 0.18s ease;
+  }
+
+  .card-chevron.colapsada svg {
+    transform: rotate(-90deg);
   }
 
   .card-label {
