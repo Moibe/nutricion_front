@@ -170,36 +170,38 @@
     gap: 1.1rem;
     max-width: 640px;
     margin: 0 auto;
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   h1 {
     margin: 0;
-    font-size: 1.35rem;
-    color: rgba(15, 23, 42, 0.95);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
   }
 
   .hoy {
     margin: 0;
     font-size: 0.95rem;
-    color: rgba(15, 23, 42, 0.65);
+    color: var(--ink-soft);
   }
 
   .hoy strong {
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   .estado {
     margin: 0;
-    color: rgba(15, 23, 42, 0.6);
+    color: var(--ink-soft);
     font-size: 0.95rem;
   }
 
   .card {
     padding: 1.1rem 1.3rem;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -208,7 +210,7 @@
   label {
     font-weight: 600;
     font-size: 0.9rem;
-    color: rgba(15, 23, 42, 0.75);
+    color: var(--ink-soft);
   }
 
   .fila-input {
@@ -264,37 +266,38 @@
     min-width: 140px;
     padding: 0.7rem 0.9rem;
     border-radius: 10px;
-    border: 1px solid rgba(15, 23, 42, 0.15);
-    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--line);
+    background: #ffffff;
     font: inherit;
     font-size: 1rem;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
   }
 
   input:focus {
     outline: none;
-    border-color: rgba(37, 99, 235, 0.5);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    border-color: var(--ink);
   }
 
+  /* CTA principal: volt sólido + texto negro, mismo lenguaje que el resto
+     de la app. */
   button {
     flex-shrink: 0;
     padding: 0.7rem 1.3rem;
     border-radius: 10px;
-    border: 1px solid rgba(37, 99, 235, 0.35);
-    background: #2563eb;
-    color: #fff;
+    border: 1px solid var(--volt);
+    background: var(--volt);
+    color: var(--ink);
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.95rem;
     cursor: pointer;
     transition:
-      background 0.18s ease,
+      filter 0.18s ease,
       opacity 0.18s ease;
   }
 
   button:hover:not(:disabled) {
-    background: #1d4fd1;
+    filter: brightness(0.94);
   }
 
   button:disabled {

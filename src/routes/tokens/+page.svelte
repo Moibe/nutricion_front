@@ -104,26 +104,28 @@
     gap: 1.1rem;
     max-width: 640px;
     margin: 0 auto;
-    color: rgba(15, 23, 42, 0.9);
+    color: var(--ink);
   }
 
   h1 {
     margin: 0;
-    font-size: 1.35rem;
-    color: rgba(15, 23, 42, 0.95);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
   }
 
   .estado {
     margin: 0;
-    color: rgba(15, 23, 42, 0.6);
+    color: var(--ink-soft);
     font-size: 0.95rem;
   }
 
   .card {
     padding: 1.1rem 1.3rem;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .card-head {
@@ -138,15 +140,16 @@
   .card-titulo {
     font-weight: 700;
     font-size: 1.1rem;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
   }
 
+  /* Volt sólido: la cifra de costo es el dato más importante de cada bloque. */
   .costo {
     font-weight: 700;
     font-size: 1.05rem;
-    color: #1e3a8a;
-    background: rgba(37, 99, 235, 0.14);
-    border: 1px solid rgba(37, 99, 235, 0.35);
+    color: var(--ink);
+    background: var(--volt);
+    border: 1px solid var(--volt);
     border-radius: 999px;
     padding: 0.3rem 0.85rem;
     white-space: nowrap;
@@ -166,32 +169,32 @@
     gap: 0.15rem;
     padding: 0.7rem 0.85rem;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .stat .val {
     font-size: 1.2rem;
     font-weight: 700;
-    color: rgba(15, 23, 42, 0.95);
+    color: var(--ink);
     font-variant-numeric: tabular-nums;
   }
 
   .stat .lbl {
     font-size: 0.72rem;
-    color: rgba(15, 23, 42, 0.55);
+    color: var(--ink-soft);
   }
 
   .nota {
     margin: 0;
     font-size: 0.8rem;
-    color: rgba(15, 23, 42, 0.6);
+    color: var(--ink-soft);
     line-height: 1.5;
   }
 
   .nota code {
     font-size: 0.76rem;
-    background: rgba(15, 23, 42, 0.06);
+    background: rgba(15, 15, 15, 0.06);
     padding: 0.05rem 0.3rem;
     border-radius: 4px;
   }
