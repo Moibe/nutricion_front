@@ -102,17 +102,18 @@
   // abre en modo "agregar nuevo"; si no, reabre esa conversación puntual.
   let expandedId = $state<number | null>(null);
   let editandoConsumo = $state<Consumo | null>(null);
-  // Acordeón: en cuanto hay una comida activa, las DEMÁS se repliegan (solo
-  // header + fecha) para no competir visualmente con la que estás llenando.
-  // La activa nunca se repliega. colapsoManual guarda overrides explícitos
-  // del chevron (persisten aunque cambies de comida activa — "quiero ver
-  // esta aunque no sea con la que trabajo" es una decisión que se respeta).
+  // Acordeón: TODAS las tarjetas arrancan replegadas (solo header + fecha)
+  // desde que se abre la página, no solo al activar una — la única que nunca
+  // se repliega es la comida activa (con la que estás trabajando ahora
+  // mismo). colapsoManual guarda overrides explícitos del chevron (persisten
+  // aunque cambies de comida activa — "quiero ver esta aunque no sea con la
+  // que trabajo" es una decisión que se respeta).
   let colapsoManual = $state<Record<number, boolean>>({});
 
   function estaColapsada(comidaId: number): boolean {
     if (comidaId === expandedId) return false;
     if (comidaId in colapsoManual) return colapsoManual[comidaId];
-    return expandedId !== null;
+    return true;
   }
 
   function toggleColapso(comidaId: number) {
