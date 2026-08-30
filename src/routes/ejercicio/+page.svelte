@@ -6,21 +6,37 @@
   // (nunca concepto — no tiene forma de describir el ejercicio), y el back
   // conserva el concepto ya guardado si una llamada posterior no lo manda
   // (COALESCE), así que el Atajo actualizando el total no te borra lo que
-  // escribiste aquí. Si ya hay datos guardados hoy, se precargan.
+  // escribiste aquí. Si ya hay datos guardados ese día, se precargan.
+  //
+  // ?fecha=YYYY-MM-DD (opcional, en la URL): permite capturar/corregir el
+  // ejercicio de un día PASADO, no solo hoy — mismo patrón que /peso, así
+  // puede llegar directo desde el resumen de /calendario.
   import { env } from '$env/dynamic/public';
+  import { page } from '$app/state';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX).
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
-  const hoyLargoRaw = new Date().toLocaleDateString('es-MX', {
-    timeZone: 'America/Mexico_City',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-  const hoyLargo = hoyLargoRaw.charAt(0).toUpperCase() + hoyLargoRaw.slice(1);
+
+  function formatoFechaLarga(fecha: string): string {
+    const [y, m, d] = fecha.split('-').map(Number);
+    const raw = new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }
+
+  const fechaParam = $derived(page.url.searchParams.get('fecha'));
+  const fechaValida = $derived(
+    fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyISO ? fechaParam : null
+  );
+  const fechaObjetivo = $derived(fechaValida ?? hoyISO);
+  const esHoy = $derived(fechaObjetivo === hoyISO);
+  const fechaLargoObjetivo = $derived(formatoFechaLarga(fechaObjetivo));
 
   let concepto = $state('');
   let calorias = $state('');
@@ -39,6 +55,14 @@
   }
 
   $effect(() => {
+    // Leído SÍNCRONO (antes del IIFE) para que el effect quede suscrito a
+    // fechaObjetivo y vuelva a correr si navegas de un ?fecha= a otro sin
+    // desmontar la página (mismo componente, misma ruta).
+    const fecha = fechaObjetivo;
+    concepto = '';
+    calorias = '';
+    guardado = false;
+    cargando = true;
     (async () => {
       try {
         const res = await fetch(`${API_URL}/metricas-ios`);
@@ -49,10 +73,10 @@
             valor: number;
             concepto: string | null;
           }[];
-          const deHoy = datos.find((m) => m.fecha === hoyISO && m.tipo === 'calorias_quemadas');
-          if (deHoy) {
-            calorias = String(deHoy.valor);
-            concepto = deHoy.concepto ?? '';
+          const deEseDia = datos.find((m) => m.fecha === fecha && m.tipo === 'calorias_quemadas');
+          if (deEseDia) {
+            calorias = String(deEseDia.valor);
+            concepto = deEseDia.concepto ?? '';
           }
         }
       } catch {
@@ -90,7 +114,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo: 'calorias_quemadas',
-          fecha: hoyISO,
+          fecha: fechaObjetivo,
           valor,
           fuente: 'manual',
           concepto: concepto.trim()
@@ -116,7 +140,14 @@
 
 <section class="ejercicio-page">
   <h1>Ejercicio</h1>
-  <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+  {#if esHoy}
+    <p class="hoy">Hoy es: <strong>{fechaLargoObjetivo}</strong></p>
+  {:else}
+    <p class="hoy">
+      Editando: <strong>{fechaLargoObjetivo}</strong>
+      <a href="/ejercicio" class="volver-hoy">volver a hoy</a>
+    </p>
+  {/if}
 
   {#if error}
     <div class="error">⚠️ {error}</div>
@@ -189,6 +220,17 @@
 
   .hoy strong {
     color: var(--ink);
+  }
+
+  .volver-hoy {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .volver-hoy:hover {
+    text-decoration: underline;
   }
 
   .estado {

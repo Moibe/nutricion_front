@@ -1,6 +1,6 @@
 <script lang="ts">
   import Calendario from '$lib/Calendario.svelte';
-  import ListadoComidas from '$lib/ListadoComidas.svelte';
+  import ResumenDia from '$lib/ResumenDia.svelte';
 
   // Arranca en el día de hoy (CDMX, misma zona que usa el resto de la app).
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
@@ -12,7 +12,7 @@
     <Calendario seleccionada={fechaSeleccionada} onSeleccionar={(f) => (fechaSeleccionada = f)} />
   </div>
   <div class="resultado-col">
-    <ListadoComidas fechaFiltro={fechaSeleccionada} />
+    <ResumenDia fecha={fechaSeleccionada} />
   </div>
 </section>
 
