@@ -1,22 +1,20 @@
 <script lang="ts">
-  // Captura manual de ejercicio del día (complemento al Atajo de iOS): dos
-  // campos (concepto + calorías quemadas) + botón Guardar que hacen upsert
-  // directo a POST /metricas-ios (tipo=calorias_quemadas), el mismo
-  // "cachador" genérico que usa el Atajo. El Atajo solo manda el número
-  // (nunca concepto — no tiene forma de describir el ejercicio), y el back
-  // conserva el concepto ya guardado si una llamada posterior no lo manda
-  // (COALESCE), así que el Atajo actualizando el total no te borra lo que
-  // escribiste aquí. Si ya hay datos guardados ese día, se precargan.
+  // Bitácora de ejercicio del día: cada "Guardar" AGREGA una entrada nueva
+  // (no reemplaza la anterior) — mismo espíritu que comidas/consumos. El
+  // total mostrado abajo es la suma de las entradas del día. El Atajo de iOS
+  // sigue guardando su propio valor (calorías activas del Watch) por
+  // separado en /metricas-ios; el resto de la app (Registro Diario,
+  // Calendario, Total del día de Alimentación) suma ambas fuentes para
+  // "kcal quemadas".
   //
-  // ?fecha=YYYY-MM-DD (opcional, en la URL): permite capturar/corregir el
-  // ejercicio de un día PASADO, no solo hoy — mismo patrón que /peso, así
-  // puede llegar directo desde el resumen de /calendario.
+  // ?fecha=YYYY-MM-DD (opcional, en la URL): permite ver/agregar entradas de
+  // un día PASADO, no solo hoy — mismo patrón que /peso, así puede llegar
+  // directo desde el resumen de /calendario.
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
 
   const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
-  // Misma zona horaria que usa el resto de la app para "hoy" (CDMX).
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
 
   function formatoFechaLarga(fecha: string): string {
@@ -38,12 +36,26 @@
   const esHoy = $derived(fechaObjetivo === hoyISO);
   const fechaLargoObjetivo = $derived(formatoFechaLarga(fechaObjetivo));
 
+  type Entrada = { id: number; fecha: string; concepto: string; kilocalorias: number; created_at: string };
+
+  let entradas = $state<Entrada[]>([]);
+  let cargando = $state(true);
+  let error = $state<string | null>(null);
+  let errorAccion = $state<string | null>(null);
+
   let concepto = $state('');
   let calorias = $state('');
-  let cargando = $state(true);
   let guardando = $state(false);
-  let guardado = $state(false);
-  let error = $state<string | null>(null);
+
+  let confirmandoEliminar = $state<number | null>(null);
+  let eliminandoId = $state<number | null>(null);
+
+  const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
+
+  const entradasDelDia = $derived(
+    entradas.filter((e) => e.fecha === fechaObjetivo).slice().sort((a, b) => a.id - b.id)
+  );
+  const totalDia = $derived(entradasDelDia.reduce((acc, e) => acc + e.kilocalorias, 0));
 
   function extraerError(detalle: unknown, fallback: string): string {
     const d = (detalle as { detail?: unknown } | null)?.detail;
@@ -55,32 +67,18 @@
   }
 
   $effect(() => {
-    // Leído SÍNCRONO (antes del IIFE) para que el effect quede suscrito a
-    // fechaObjetivo y vuelva a correr si navegas de un ?fecha= a otro sin
-    // desmontar la página (mismo componente, misma ruta).
-    const fecha = fechaObjetivo;
-    concepto = '';
-    calorias = '';
-    guardado = false;
-    cargando = true;
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/metricas-ios`);
-        if (res.ok) {
-          const datos = (await res.json()) as {
-            fecha: string;
-            tipo: string;
-            valor: number;
-            concepto: string | null;
-          }[];
-          const deEseDia = datos.find((m) => m.fecha === fecha && m.tipo === 'calorias_quemadas');
-          if (deEseDia) {
-            calorias = String(deEseDia.valor);
-            concepto = deEseDia.concepto ?? '';
-          }
-        }
-      } catch {
-        // Si falla la carga, simplemente arranca vacío — no bloquea poder capturar.
+        const res = await fetch(`${API_URL}/ejercicios`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        entradas = (await res.json()) as Entrada[];
+      } catch (e) {
+        error =
+          e instanceof TypeError
+            ? `No se pudo conectar con la API en ${API_URL}.`
+            : e instanceof Error
+              ? e.message
+              : String(e);
       } finally {
         cargando = false;
       }
@@ -89,44 +87,39 @@
 
   async function guardar() {
     if (!concepto.trim()) {
-      error = 'Describe brevemente el ejercicio (ej. "Correr 5km").';
+      errorAccion = 'Describe brevemente el ejercicio (ej. "Correr 5km").';
       return;
     }
-    // OJO: bind:value en <input type="number"> guarda un NÚMERO, no texto —
-    // "!calorias" trataría un 0 legítimo como vacío (0 es falsy en JS). Por
-    // eso se checa "=== ''" para vacío de verdad, aparte de validar el número.
-    // 0 sí es válido aquí (día sin ejercicio registrado); solo se rechaza
-    // vacío, no-numérico o negativo.
+    // bind:value en <input type="number"> guarda un NÚMERO, no texto — por
+    // eso se checa "=== ''" para vacío de verdad en vez de "!calorias" (0 es
+    // falsy en JS y se confundiría con vacío, aunque 0 sí es válido aquí).
     if (calorias === '' || calorias === null || calorias === undefined) {
-      error = 'Ingresa un número de calorías válido.';
+      errorAccion = 'Ingresa un número de calorías válido.';
       return;
     }
     const valor = Number(calorias);
     if (Number.isNaN(valor) || valor < 0) {
-      error = 'Ingresa un número de calorías válido.';
+      errorAccion = 'Ingresa un número de calorías válido.';
       return;
     }
     guardando = true;
-    error = null;
+    errorAccion = null;
     try {
-      const res = await fetch(`${API_URL}/metricas-ios`, {
+      const res = await fetch(`${API_URL}/ejercicios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'calorias_quemadas',
-          fecha: fechaObjetivo,
-          valor,
-          fuente: 'manual',
-          concepto: concepto.trim()
-        })
+        body: JSON.stringify({ fecha: fechaObjetivo, concepto: concepto.trim(), kilocalorias: valor })
       });
       if (!res.ok) {
         const detalle = await res.json().catch(() => null);
         throw new Error(extraerError(detalle, `HTTP ${res.status}`));
       }
-      guardado = true;
+      const creado = (await res.json()) as Entrada;
+      entradas = [...entradas, creado];
+      concepto = '';
+      calorias = '';
     } catch (e) {
-      error =
+      errorAccion =
         e instanceof TypeError
           ? `No se pudo conectar con la API en ${API_URL}.`
           : e instanceof Error
@@ -134,6 +127,22 @@
             : String(e);
     } finally {
       guardando = false;
+    }
+  }
+
+  async function eliminar(id: number) {
+    if (eliminandoId !== null) return;
+    eliminandoId = id;
+    errorAccion = null;
+    try {
+      const res = await fetch(`${API_URL}/ejercicios/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      entradas = entradas.filter((e) => e.id !== id);
+      confirmandoEliminar = null;
+    } catch {
+      errorAccion = 'No se pudo eliminar la entrada.';
+    } finally {
+      eliminandoId = null;
     }
   }
 </script>
@@ -152,6 +161,9 @@
   {#if error}
     <div class="error">⚠️ {error}</div>
   {/if}
+  {#if errorAccion}
+    <div class="error">⚠️ {errorAccion}</div>
+  {/if}
 
   {#if cargando}
     <p class="estado">Cargando…</p>
@@ -165,7 +177,6 @@
             type="text"
             placeholder="Ej. Correr 5km"
             bind:value={concepto}
-            oninput={() => (guardado = false)}
             onkeydown={(e) => e.key === 'Enter' && guardar()}
           />
         </div>
@@ -179,7 +190,6 @@
             min="0"
             placeholder="350"
             bind:value={calorias}
-            oninput={() => (guardado = false)}
             onkeydown={(e) => e.key === 'Enter' && guardar()}
           />
         </div>
@@ -187,10 +197,72 @@
           {guardando ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
-      {#if guardado}
-        <p class="ok">✓ Guardado</p>
-      {/if}
     </div>
+
+    {#if entradasDelDia.length > 0}
+      <div class="total-dia">
+        <span class="total-dia-label">Total del día</span>
+        <span class="total-big">{fmt(totalDia)} kcal</span>
+      </div>
+
+      <div class="entradas">
+        {#each entradasDelDia as e (e.id)}
+          <div class="entrada">
+            <div class="entrada-head">
+              <span class="entrada-concepto">{e.concepto}</span>
+              <div class="entrada-acciones">
+                <span class="entrada-kcal">{fmt(e.kilocalorias)} kcal</span>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  onclick={() => (confirmandoEliminar = e.id)}
+                  aria-label="Eliminar entrada"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+                    <path d="M10 11v6M14 11v6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {#if confirmandoEliminar === e.id}
+              <div class="confirmar-eliminar">
+                <span>¿Eliminar esta entrada?</span>
+                <div class="confirmar-acciones">
+                  <button
+                    type="button"
+                    class="cancelar-btn"
+                    onclick={() => (confirmandoEliminar = null)}
+                    disabled={eliminandoId !== null}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    class="eliminar-btn"
+                    onclick={() => eliminar(e.id)}
+                    disabled={eliminandoId !== null}
+                  >
+                    {eliminandoId === e.id ? 'Eliminando…' : 'Eliminar'}
+                  </button>
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p class="estado">Aún no hay ejercicio capturado {esHoy ? 'hoy' : 'ese día'}.</p>
+    {/if}
   {/if}
 </section>
 
@@ -347,11 +419,148 @@
     cursor: not-allowed;
   }
 
-  .ok {
-    margin: 0;
-    font-size: 0.85rem;
+  /* Suma de las entradas del día — mismo tratamiento que "Total del día" en
+     Alimentación Hoy. */
+  .total-dia {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 14px;
+    background: rgba(215, 255, 61, 0.4);
+    border: 1px solid rgba(15, 15, 15, 0.15);
+  }
+
+  .total-dia-label {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+
+  .total-big {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--ink);
+    background: var(--volt);
+    border: 1px solid var(--volt);
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    white-space: nowrap;
+  }
+
+  .entradas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .entrada {
+    padding: 0.9rem 1.1rem;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+  }
+
+  .entrada-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+
+  .entrada-concepto {
     font-weight: 600;
-    color: #166534;
+    font-size: 0.95rem;
+    color: var(--ink);
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .entrada-acciones {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .entrada-kcal {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: rgba(215, 255, 61, 0.4);
+    border: 1px solid rgba(15, 15, 15, 0.12);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    white-space: nowrap;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 0.15rem;
+    color: rgba(15, 15, 15, 0.4);
+    cursor: pointer;
+    display: inline-flex;
+  }
+
+  .icon-btn:hover {
+    color: var(--ink);
+  }
+
+  .confirmar-eliminar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+
+  .confirmar-acciones {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .cancelar-btn,
+  .eliminar-btn {
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+  }
+
+  .cancelar-btn {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+
+  .cancelar-btn:hover:not(:disabled) {
+    background: rgba(15, 15, 15, 0.05);
+  }
+
+  .eliminar-btn {
+    background: rgba(220, 38, 38, 0.9);
+    color: #fff;
+  }
+
+  .eliminar-btn:hover:not(:disabled) {
+    background: #b91c1c;
+  }
+
+  .cancelar-btn:disabled,
+  .eliminar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .error {

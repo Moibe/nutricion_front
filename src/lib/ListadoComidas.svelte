@@ -48,6 +48,8 @@
   // Métricas genéricas que manda el Atajo de iOS (calorías quemadas, peso,
   // lo que se agregue después) — una fila por (fecha, tipo).
   type MetricaIos = { fecha: string; tipo: string; valor: number; fuente: string };
+  // Bitácora manual de ejercicio (/ejercicio): varias entradas por día.
+  type EjercicioEntrada = { fecha: string; kilocalorias: number };
 
   // "Colación 1"/"Colación 2" comparten tipo "colacion"; el índice acá se manda
   // como `orden` (0..4) para poder ubicarlas en la secuencia real del día.
@@ -88,6 +90,7 @@
 
   let comidas = $state<Comida[]>([]);
   let metricasIos = $state<MetricaIos[]>([]);
+  let ejerciciosManual = $state<EjercicioEntrada[]>([]);
   let cargando = $state(true);
   let error = $state<string | null>(null);
   // Error transitorio de una acción (cambiar fecha, eliminar, crear), SEPARADO
@@ -157,6 +160,17 @@
   }
   const filaQuemadasDia = $derived(metricaDelDia('calorias_quemadas'));
   const filaPesoDia = $derived(metricaDelDia('peso'));
+
+  // "kcal quemadas" del día = Atajo de iOS (metricas-ios) + bitácora manual
+  // (ejercicios) sumadas. hayQuemadasDia distingue "0 kcal capturadas" de
+  // "nada capturado" para no mostrar el chip cuando no hay ningún dato.
+  const kcalQuemadasManualDia = $derived(
+    diaActual
+      ? ejerciciosManual.filter((e) => e.fecha === diaActual).reduce((acc, e) => acc + e.kilocalorias, 0)
+      : 0
+  );
+  const hayQuemadasDia = $derived(filaQuemadasDia !== undefined || kcalQuemadasManualDia > 0);
+  const kcalQuemadasDia = $derived((filaQuemadasDia?.valor ?? 0) + kcalQuemadasManualDia);
 
   // Título del encabezado: contextual al día elegido cuando viene de /calendario.
   const titulo = $derived(
@@ -410,6 +424,17 @@
       }
     })();
   });
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/ejercicios`);
+        if (res.ok) ejerciciosManual = (await res.json()) as EjercicioEntrada[];
+      } catch {
+        // Best-effort: si falla, simplemente no se suma la bitácora manual.
+      }
+    })();
+  });
 </script>
 
 {#snippet botonesCrear()}
@@ -465,9 +490,9 @@
         <span class="total-big macro">{fmt(totalDia.prot)} g prot</span>
         <span class="total-big macro">{fmt(totalDia.carb)} g carb</span>
         <span class="total-big macro">{fmt(totalDia.grasa)} g grasa</span>
-        {#if filaQuemadasDia}
-          <span class="total-big quemadas">{fmt(filaQuemadasDia.valor)} kcal quemadas</span>
-          <span class="total-big neto">{fmt(totalDia.kcal - filaQuemadasDia.valor)} kcal neto</span>
+        {#if hayQuemadasDia}
+          <span class="total-big quemadas">{fmt(kcalQuemadasDia)} kcal quemadas</span>
+          <span class="total-big neto">{fmt(totalDia.kcal - kcalQuemadasDia)} kcal neto</span>
         {/if}
       </div>
     </div>

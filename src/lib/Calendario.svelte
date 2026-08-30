@@ -71,23 +71,32 @@
   $effect(() => {
     (async () => {
       try {
-        const [resComidas, resMetricas] = await Promise.all([
+        const [resComidas, resMetricas, resEjercicios] = await Promise.all([
           fetch(`${API_URL}/comidas`),
-          fetch(`${API_URL}/metricas-ios`)
+          fetch(`${API_URL}/metricas-ios`),
+          fetch(`${API_URL}/ejercicios`)
         ]);
         if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
         const comidas = (await resComidas.json()) as { fecha: string }[];
         diasComida = new Set(comidas.map((c) => c.fecha));
 
-        // Best-effort para métricas: si falla, comida ya se mostró bien y
-        // simplemente no aparecen iconitos de ejercicio/peso.
+        // Ejercicio: día tiene ícono si hay dato del Atajo de iOS (metricas)
+        // O una entrada manual en la bitácora (ejercicios) — best-effort, si
+        // alguno falla comida ya se mostró bien y simplemente no aparece ese
+        // iconito.
+        const diasEjercicioSet = new Set<string>();
         if (resMetricas.ok) {
           const metricas = (await resMetricas.json()) as { fecha: string; tipo: string }[];
-          diasEjercicio = new Set(
-            metricas.filter((m) => m.tipo === 'calorias_quemadas').map((m) => m.fecha)
-          );
+          for (const m of metricas.filter((m) => m.tipo === 'calorias_quemadas')) {
+            diasEjercicioSet.add(m.fecha);
+          }
           diasPeso = new Set(metricas.filter((m) => m.tipo === 'peso').map((m) => m.fecha));
         }
+        if (resEjercicios.ok) {
+          const ejercicios = (await resEjercicios.json()) as { fecha: string }[];
+          for (const e of ejercicios) diasEjercicioSet.add(e.fecha);
+        }
+        diasEjercicio = diasEjercicioSet;
       } catch (e) {
         error =
           e instanceof TypeError

@@ -52,12 +52,14 @@
   type Consumo = { kilocalorias: number | null };
   type Comida = { fecha: string; consumos: Consumo[] };
   type MetricaIos = { fecha: string; tipo: string; valor: number };
+  type EjercicioEntrada = { fecha: string; kilocalorias: number };
   type Perfil = { fecha_nacimiento: string; estatura_cm: number; sexo: 'hombre' | 'mujer' };
 
   let cargando = $state(true);
   let error = $state<string | null>(null);
   let comidasRaw = $state<Comida[]>([]);
   let metricasRaw = $state<MetricaIos[]>([]);
+  let ejerciciosRaw = $state<EjercicioEntrada[]>([]);
   let perfil = $state<Perfil | null>(null);
 
   // Posición vertical (px, relativa a .tabla-wrap) de la fila de hoy, para
@@ -117,10 +119,17 @@
     }
 
     const pesoPorDia = new Map<string, number>();
+    // "kcal ejercitadas" = Atajo de iOS (metricas-ios) + bitácora manual
+    // (ejercicios) sumadas por día.
     const ejercicioPorDia = new Map<string, number>();
     for (const m of metricasRaw) {
       if (m.tipo === 'peso') pesoPorDia.set(m.fecha, m.valor);
-      if (m.tipo === 'calorias_quemadas') ejercicioPorDia.set(m.fecha, m.valor);
+      if (m.tipo === 'calorias_quemadas') {
+        ejercicioPorDia.set(m.fecha, (ejercicioPorDia.get(m.fecha) ?? 0) + m.valor);
+      }
+    }
+    for (const e of ejerciciosRaw) {
+      ejercicioPorDia.set(e.fecha, (ejercicioPorDia.get(e.fecha) ?? 0) + e.kilocalorias);
     }
 
     const todasLasFechas = new Set([
@@ -172,15 +181,18 @@
     error = null;
     (async () => {
       try {
-        const [resComidas, resMetricas] = await Promise.all([
+        const [resComidas, resMetricas, resEjercicios] = await Promise.all([
           fetch(`${API_URL}/comidas?desde=${d}&hasta=${h}`),
-          fetch(`${API_URL}/metricas-ios?desde=${d}&hasta=${h}`)
+          fetch(`${API_URL}/metricas-ios?desde=${d}&hasta=${h}`),
+          fetch(`${API_URL}/ejercicios?desde=${d}&hasta=${h}`)
         ]);
         if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
         if (!resMetricas.ok) throw new Error(`HTTP ${resMetricas.status}`);
+        if (!resEjercicios.ok) throw new Error(`HTTP ${resEjercicios.status}`);
 
         comidasRaw = (await resComidas.json()) as Comida[];
         metricasRaw = (await resMetricas.json()) as MetricaIos[];
+        ejerciciosRaw = (await resEjercicios.json()) as EjercicioEntrada[];
       } catch (e) {
         error =
           e instanceof TypeError

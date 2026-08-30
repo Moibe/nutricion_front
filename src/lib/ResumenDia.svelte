@@ -15,6 +15,7 @@
   type Consumo = { kilocalorias: number | null };
   type Comida = { fecha: string; consumos: Consumo[] };
   type MetricaIos = { fecha: string; tipo: string; valor: number };
+  type EjercicioEntrada = { fecha: string; kilocalorias: number };
 
   let cargando = $state(true);
   let error = $state<string | null>(null);
@@ -42,9 +43,10 @@
     error = null;
     (async () => {
       try {
-        const [resComidas, resMetricas] = await Promise.all([
+        const [resComidas, resMetricas, resEjercicios] = await Promise.all([
           fetch(`${API_URL}/comidas`),
-          fetch(`${API_URL}/metricas-ios`)
+          fetch(`${API_URL}/metricas-ios`),
+          fetch(`${API_URL}/ejercicios`)
         ]);
         if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
         const comidas = (await resComidas.json()) as Comida[];
@@ -54,18 +56,33 @@
           ? delDia.reduce((acc, c) => acc + c.consumos.reduce((a, x) => a + (x.kilocalorias ?? 0), 0), 0)
           : null;
 
-        // Best-effort para métricas: si falla, comida ya se mostró bien y
-        // simplemente ejercicio/peso quedan como "sin capturar".
+        // "kcal quemadas" = Atajo de iOS (metricas-ios) + bitácora manual
+        // (ejercicios) — best-effort: si algún fetch falla, comida ya se
+        // mostró bien y simplemente ejercicio/peso quedan como "sin capturar".
+        let quemadasAtajo: number | null = null;
         if (resMetricas.ok) {
           const metricas = (await resMetricas.json()) as MetricaIos[];
           const eje = metricas.find((m) => m.fecha === f && m.tipo === 'calorias_quemadas');
           const pes = metricas.find((m) => m.fecha === f && m.tipo === 'peso');
-          kcalEjercicio = eje ? eje.valor : null;
+          quemadasAtajo = eje ? eje.valor : null;
           peso = pes ? pes.valor : null;
         } else {
-          kcalEjercicio = null;
           peso = null;
         }
+
+        let quemadasManual: number | null = null;
+        if (resEjercicios.ok) {
+          const ejercicios = (await resEjercicios.json()) as EjercicioEntrada[];
+          const delDiaEje = ejercicios.filter((e) => e.fecha === f);
+          quemadasManual = delDiaEje.length
+            ? delDiaEje.reduce((acc, e) => acc + e.kilocalorias, 0)
+            : null;
+        }
+
+        kcalEjercicio =
+          quemadasAtajo === null && quemadasManual === null
+            ? null
+            : (quemadasAtajo ?? 0) + (quemadasManual ?? 0);
       } catch (e) {
         error =
           e instanceof TypeError
