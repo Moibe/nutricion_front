@@ -138,6 +138,14 @@
       ...ejercicioPorDia.keys()
     ]);
 
+    // Hoy SIEMPRE aparece cuando el mes en pantalla es el actual, aunque
+    // todavía no tenga ningún dato capturado — si no, la fila (y las
+    // flechitas que la señalan) simplemente no existen hasta que captures
+    // algo, y "hoy" se vuelve invisible en la tabla apenas cambia el día.
+    if (hoyISO >= desde && hoyISO <= hasta) {
+      todasLasFechas.add(hoyISO);
+    }
+
     return [...todasLasFechas]
       .sort((a, b) => b.localeCompare(a))
       .map((fecha) => {
