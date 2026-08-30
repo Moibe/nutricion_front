@@ -5,52 +5,10 @@
   // relativa del cursor (-1..1 en cada eje) y se inclina la barra hacia él.
   // El botón de hamburguesa solo se ve en mobile (ver media query) — ahí
   // reemplaza al sidebar fijo, que en pantallas chicas es demasiado ancho.
-  // A la derecha va un indicador compacto del gasto de IA (hoy, mes y
-  // total estimado), que enlaza a /tokens para el detalle.
-  import { env } from '$env/dynamic/public';
-  import { afterNavigate } from '$app/navigation';
-
+  // El indicador de gasto de IA (hoy/mes/total) vive ahora en Sidebar.svelte
+  // (arriba del botón de replegar), no aquí.
   let { mobileOpen = false, toggleMobile }: { mobileOpen?: boolean; toggleMobile?: () => void } =
     $props();
-
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
-
-  type Bloque = {
-    llamadas: number;
-    input_tokens: number;
-    output_tokens: number;
-    costo_usd: number;
-  };
-  type Uso = {
-    modelo: string;
-    precio_input_usd_por_1m: number;
-    precio_output_usd_por_1m: number;
-    total: Bloque;
-    mes: Bloque;
-    hoy: Bloque;
-  };
-
-  let uso = $state<Uso | null>(null);
-
-  // Solo 2 decimales (a diferencia de /tokens, que usa hasta 4 para precisión):
-  // acá el espacio es angosto — 3 valores + separadores tienen que caber en
-  // una barra de 64px incluso en mobile, junto al hamburger y el brand.
-  const usd = (n: number) =>
-    '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  async function cargarUso() {
-    try {
-      const res = await fetch(`${API_URL}/uso`);
-      if (!res.ok) return;
-      uso = (await res.json()) as Uso;
-    } catch {
-      /* silencioso: es solo un indicador, no debe estorbar la navegación */
-    }
-  }
-
-  // afterNavigate corre al montar y en cada navegación (solo cliente), así el
-  // costo se refresca al moverse entre secciones sin recargar.
-  afterNavigate(() => cargarUso());
 
   let tiltX = $state(0);
   let tiltY = $state(0);
@@ -100,41 +58,6 @@
     </svg>
     <span class="brand-title">Kcal</span>
   </a>
-
-  <span class="spacer"></span>
-
-  <a href="/tokens" class="uso-pill" title="Consumo de tokens de IA (hoy, mes y total estimado)">
-    <svg
-      class="uso-icon"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M14.5 9a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.8-2.5 2s1.1 1.8 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2A2.5 2.5 0 0 1 9.5 15" />
-      <path d="M12 6v1.5M12 16.5V18" />
-    </svg>
-    <span class="uso-seg">
-      <span class="uso-label">Hoy</span>
-      <span class="uso-value">{uso ? usd(uso.hoy.costo_usd) : '—'}</span>
-    </span>
-    <span class="uso-sep" aria-hidden="true"></span>
-    <span class="uso-seg">
-      <span class="uso-label">Mes</span>
-      <span class="uso-value">{uso ? usd(uso.mes.costo_usd) : '—'}</span>
-    </span>
-    <span class="uso-sep" aria-hidden="true"></span>
-    <span class="uso-seg">
-      <span class="uso-label">Total</span>
-      <span class="uso-value">{uso ? usd(uso.total.costo_usd) : '—'}</span>
-    </span>
-  </a>
 </header>
 
 <style>
@@ -183,14 +106,6 @@
     .hamburger {
       display: inline-flex;
     }
-
-    /* Menos aire a los lados: en mobile compite por espacio con el hamburger,
-       el brand y la píldora de Hoy/Mes/Total — a 320px de ancho esos 2.5rem
-       (1.25rem × 2) eran justo lo que le faltaba a la píldora para no recortar
-       "Total" internamente. */
-    .topnav {
-      padding: 0 0.9rem;
-    }
   }
 
   .brand {
@@ -220,90 +135,5 @@
     font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: 0.005em;
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .uso-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    background: var(--volt);
-    border: 1px solid var(--volt);
-    color: var(--volt-ink);
-    text-decoration: none;
-    transition: filter 0.18s ease;
-  }
-
-  .uso-pill::-webkit-scrollbar {
-    display: none;
-  }
-
-  .uso-pill:hover {
-    filter: brightness(0.94);
-  }
-
-  .uso-icon {
-    flex-shrink: 0;
-  }
-
-  .uso-seg {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1.15;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  .uso-label {
-    font-size: 0.6rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: rgba(26, 36, 0, 0.65);
-  }
-
-  .uso-value {
-    font-size: 0.85rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .uso-sep {
-    flex-shrink: 0;
-    align-self: stretch;
-    width: 1px;
-    margin: 0.1rem 0;
-    background: rgba(26, 36, 0, 0.2);
-  }
-
-  @media (max-width: 768px) {
-    .uso-pill {
-      gap: 0.28rem;
-      padding: 0.3rem 0.45rem;
-    }
-
-    /* El ícono es decorativo (el título del link ya explica qué es); en
-       mobile el espacio junto al hamburger y el brand es lo más apretado. */
-    .uso-icon {
-      display: none;
-    }
-
-    .uso-label {
-      font-size: 0.55rem;
-    }
-
-    .uso-value {
-      font-size: 0.72rem;
-    }
   }
 </style>

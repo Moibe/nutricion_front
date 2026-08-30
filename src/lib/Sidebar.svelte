@@ -8,7 +8,14 @@
   // oculta por completo (ver media query) y se reemplaza por un drawer
   // controlado por el hamburguesa del TopNav (mobileOpen/closeMobile) — es
   // independiente del collapsed de escritorio.
+  //
+  // Al fondo (arriba del botón de replegar en escritorio, al fondo del
+  // drawer en mobile) va el indicador de gasto de IA (hoy/mes/total), que
+  // antes vivía en TopNav — se movió aquí para dejar la barra superior solo
+  // con el logo.
+  import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
+  import { afterNavigate } from '$app/navigation';
 
   let {
     collapsed = false,
@@ -24,6 +31,30 @@
 
   // Marca el item activo según la ruta. Los placeholders a "/" nunca se marcan.
   const isActive = (href: string) => href !== '/' && page.url.pathname === href;
+
+  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+
+  type Bloque = { llamadas: number; input_tokens: number; output_tokens: number; costo_usd: number };
+  type Uso = { modelo: string; precio_input_usd_por_1m: number; precio_output_usd_por_1m: number; total: Bloque; mes: Bloque; hoy: Bloque };
+
+  let uso = $state<Uso | null>(null);
+
+  const usd = (n: number) =>
+    '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  async function cargarUso() {
+    try {
+      const res = await fetch(`${API_URL}/uso`);
+      if (!res.ok) return;
+      uso = (await res.json()) as Uso;
+    } catch {
+      /* silencioso: es solo un indicador, no debe estorbar la navegación */
+    }
+  }
+
+  // afterNavigate corre al montar y en cada navegación (solo cliente), así el
+  // costo se refresca al moverse entre secciones sin recargar.
+  afterNavigate(() => cargarUso());
 
   let tiltX = $state(0);
   let tiltY = $state(0);
@@ -145,6 +176,25 @@
   </a>
 {/snippet}
 
+{#snippet usoPill()}
+  <a href="/tokens" class="uso-pill" title="Consumo de tokens de IA (hoy, mes y total estimado)">
+    <span class="uso-seg">
+      <span class="uso-label">Hoy</span>
+      <span class="uso-value">{uso ? usd(uso.hoy.costo_usd) : '—'}</span>
+    </span>
+    <span class="uso-sep" aria-hidden="true"></span>
+    <span class="uso-seg">
+      <span class="uso-label">Mes</span>
+      <span class="uso-value">{uso ? usd(uso.mes.costo_usd) : '—'}</span>
+    </span>
+    <span class="uso-sep" aria-hidden="true"></span>
+    <span class="uso-seg">
+      <span class="uso-label">Total</span>
+      <span class="uso-value">{uso ? usd(uso.total.costo_usd) : '—'}</span>
+    </span>
+  </a>
+{/snippet}
+
 <!-- Sidebar fijo de escritorio (oculto por completo en mobile). -->
 {#if !collapsed}
   <aside
@@ -159,6 +209,7 @@
     </nav>
 
     <div class="sidebar-footer">
+      {@render usoPill()}
       <button
         type="button"
         class="collapse-btn"
@@ -210,6 +261,9 @@
   <nav>
     {@render navLinks()}
   </nav>
+  <div class="mobile-footer">
+    {@render usoPill()}
+  </div>
 </aside>
 
 <style>
@@ -329,11 +383,71 @@
 
   .sidebar-footer {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: 0.7rem;
     margin-top: auto;
     padding-top: 1rem;
     border-top: 1px solid rgba(15, 23, 42, 0.1);
+  }
+
+  /* Indicador de gasto de IA (hoy/mes/total) — mismos valores que /tokens,
+     en una cápsula angosta que cabe en el ancho del sidebar. */
+  .uso-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.45rem 0.5rem;
+    border-radius: 999px;
+    background: var(--volt);
+    border: 1px solid var(--volt);
+    color: var(--volt-ink);
+    text-decoration: none;
+    transition: filter 0.18s ease;
+  }
+
+  .uso-pill:hover {
+    filter: brightness(0.94);
+  }
+
+  .uso-seg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.15;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .uso-label {
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(26, 36, 0, 0.65);
+  }
+
+  .uso-value {
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .uso-sep {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 1px;
+    margin: 0.1rem 0;
+    background: rgba(26, 36, 0, 0.2);
+  }
+
+  .mobile-footer {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(15, 15, 15, 0.1);
   }
 
   .collapse-btn,
