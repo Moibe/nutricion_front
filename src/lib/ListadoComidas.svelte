@@ -544,22 +544,22 @@
 
 {#snippet icoProt()}
   <svg class="macro-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <circle cx="4" cy="12" r="2.5" />
-    <circle cx="20" cy="12" r="2.5" />
-    <path d="M6.5 12h11" />
+    <path d="M7 12h10" />
+    <rect x="2.5" y="8" width="4" height="8" rx="1.3" fill="currentColor" stroke="none" />
+    <rect x="17.5" y="8" width="4" height="8" rx="1.3" fill="currentColor" stroke="none" />
   </svg>
 {/snippet}
 
 {#snippet icoCarb()}
   <svg class="macro-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 2v20" />
-    <path d="M8 6l4 4 4-4" />
-    <path d="M8 13l4 4 4-4" />
+    <path d="M12 4v16" />
+    <path d="M12 8.5 8 6M12 8.5l4-2.5" />
+    <path d="M12 14 8 11.5M12 14l4-2.5" />
   </svg>
 {/snippet}
 
 {#snippet icoGrasa()}
-  <svg class="macro-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <svg class="macro-ico" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
     <path d="M12 3c-3.5 4.5-6 7.5-6 11a6 6 0 0 0 12 0c0-3.5-2.5-6.5-6-11Z" />
   </svg>
 {/snippet}
@@ -1139,10 +1139,10 @@
      mismo glifo chiquito en .total-big.macro y .macro-mini, para reconocer
      cada chip sin tener que leer el texto. */
   .macro-ico {
-    width: 9px;
-    height: 9px;
+    width: 11px;
+    height: 11px;
     flex-shrink: 0;
-    opacity: 0.7;
+    opacity: 0.85;
   }
 
   .total-big.kcal {
