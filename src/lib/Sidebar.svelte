@@ -110,22 +110,6 @@
     </svg>
     <span>Registro Diario</span>
   </a>
-  <a href="/calendario" class="nav-item" aria-current={isActive('/calendario') ? 'page' : undefined}>
-    <svg
-      class="nav-ico calendario"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-    <span>Calendario</span>
-  </a>
   <a href="/peso" class="nav-item" aria-current={isActive('/peso') ? 'page' : undefined}>
     <svg
       class="nav-ico peso"
@@ -326,10 +310,6 @@
 
   /* Mismo color por categoría que usan los iconitos del calendario, para que
      un vistazo al sidebar ya te entrene qué color es cuál ahí también. */
-  .nav-ico.calendario {
-    color: rgba(8, 145, 178, 0.75);
-  }
-
   .nav-ico.comida {
     color: rgba(37, 99, 235, 0.75);
   }
@@ -359,10 +339,6 @@
     color: #ffffff;
     background: var(--ink);
     border-color: var(--ink);
-  }
-
-  .nav-item[aria-current='page'] .nav-ico.calendario {
-    color: #0891b2;
   }
 
   .nav-item[aria-current='page'] .nav-ico.comida {

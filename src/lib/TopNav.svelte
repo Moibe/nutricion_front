@@ -6,7 +6,10 @@
   // El botón de hamburguesa solo se ve en mobile (ver media query) — ahí
   // reemplaza al sidebar fijo, que en pantallas chicas es demasiado ancho.
   // El indicador de gasto de IA (hoy/mes/total) vive ahora en Sidebar.svelte
-  // (arriba del botón de replegar), no aquí.
+  // (arriba del botón de replegar), no aquí. Calendario también se movió
+  // aquí (antes vivía en el sidebar) — solo ícono, arriba a la derecha.
+  import { page } from '$app/state';
+
   let { mobileOpen = false, toggleMobile }: { mobileOpen?: boolean; toggleMobile?: () => void } =
     $props();
 
@@ -57,6 +60,31 @@
       />
     </svg>
     <span class="brand-title">Kcal</span>
+  </a>
+
+  <span class="spacer"></span>
+
+  <a
+    href="/calendario"
+    class="calendario-btn"
+    aria-current={page.url.pathname === '/calendario' ? 'page' : undefined}
+    aria-label="Calendario"
+    title="Calendario"
+  >
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
   </a>
 </header>
 
@@ -135,5 +163,36 @@
     font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: 0.005em;
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  /* Solo ícono, mismo color que ya usaba Calendario en el sidebar (teal),
+     para que siga siendo reconocible aunque ya no tenga texto al lado. */
+  .calendario-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: #0891b2;
+    text-decoration: none;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+
+  .calendario-btn:hover {
+    background: var(--volt);
+    border-color: var(--volt);
+  }
+
+  .calendario-btn[aria-current='page'] {
+    background: var(--ink);
+    border-color: var(--ink);
   }
 </style>
