@@ -337,6 +337,20 @@
     editandoConsumo = null;
   }
 
+  // Click en el botón de una pestaña (Desayuno/Colación 1/…): si ya existe
+  // una comida en esa posición (tipo+orden) del día en turno —capturada o un
+  // cascarón vacío de esta misma sesión— solo se expande esa, nunca se crea
+  // otra. Evita tarjetas duplicadas en ceros por reapretar un botón que ya
+  // tenía comida.
+  function alClickTipo(label: string, tipo: string, orden: number) {
+    const existente = comidasVisibles.find((c) => c.tipo === tipo && c.orden === orden);
+    if (existente) {
+      toggleExpand(existente.id);
+    } else {
+      crearComida(label, tipo, orden);
+    }
+  }
+
   function editarViaIA(comidaId: number, x: Consumo) {
     // Empezar a editar cancela una confirmación de borrado pendiente.
     confirmandoEliminar = null;
@@ -472,7 +486,7 @@
         type="button"
         class="tipo-btn"
         class:activo={esActivo(t.tipo, i)}
-        onclick={() => crearComida(t.label, t.tipo, i)}
+        onclick={() => alClickTipo(t.label, t.tipo, i)}
         disabled={creando !== null}
       >
         {creando === t.label ? '…' : t.label}
