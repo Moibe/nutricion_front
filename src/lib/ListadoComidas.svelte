@@ -528,6 +528,28 @@
   </div>
 {/snippet}
 
+{#snippet icoProt()}
+  <svg class="macro-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="4" cy="12" r="2.5" />
+    <circle cx="20" cy="12" r="2.5" />
+    <path d="M6.5 12h11" />
+  </svg>
+{/snippet}
+
+{#snippet icoCarb()}
+  <svg class="macro-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 2v20" />
+    <path d="M8 6l4 4 4-4" />
+    <path d="M8 13l4 4 4-4" />
+  </svg>
+{/snippet}
+
+{#snippet icoGrasa()}
+  <svg class="macro-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 3c-3.5 4.5-6 7.5-6 11a6 6 0 0 0 12 0c0-3.5-2.5-6.5-6-11Z" />
+  </svg>
+{/snippet}
+
 <section class="listado">
   <h1>{titulo}</h1>
 
@@ -555,9 +577,9 @@
       <span class="total-dia-label">Total del día</span>
       <div class="total-dia-scroll">
         <span class="total-big kcal">{fmt(totalDia.kcal)} kcal</span>
-        <span class="total-big macro">{fmt(totalDia.prot)} g prot</span>
-        <span class="total-big macro">{fmt(totalDia.carb)} g carb</span>
-        <span class="total-big macro">{fmt(totalDia.grasa)} g grasa</span>
+        <span class="total-big macro">{@render icoProt()}{fmt(totalDia.prot)} g prot</span>
+        <span class="total-big macro">{@render icoCarb()}{fmt(totalDia.carb)} g carb</span>
+        <span class="total-big macro">{@render icoGrasa()}{fmt(totalDia.grasa)} g grasa</span>
         {#if hayQuemadasDia}
           <span class="total-big quemadas">{fmt(kcalQuemadasDia)} kcal quemadas</span>
           <span class="total-big neto">{fmt(totalDia.kcal - kcalQuemadasDia)} kcal neto</span>
@@ -587,9 +609,9 @@
               <span class="card-label">{etiqueta(c)}</span>
               <div class="card-totales">
                 <span class="total-big kcal">{fmt(totalKcal(c))} kcal</span>
-                <span class="total-big macro">{fmt(totalMacro(c, 'proteinas'))} g prot</span>
-                <span class="total-big macro">{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
-                <span class="total-big macro">{fmt(totalMacro(c, 'grasas'))} g grasa</span>
+                <span class="total-big macro">{@render icoProt()}{fmt(totalMacro(c, 'proteinas'))} g prot</span>
+                <span class="total-big macro">{@render icoCarb()}{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
+                <span class="total-big macro">{@render icoGrasa()}{fmt(totalMacro(c, 'grasas'))} g grasa</span>
               </div>
               <!-- Replegada: la fecha vive en esta MISMA fila (con lo demás,
                    deslizable) para que la tarjeta ocupe un solo renglón —
@@ -726,9 +748,9 @@
                 </div>
                 <div class="consumo-macros">
                   <span class="macro-mini kcal">{fmt(x.kilocalorias ?? 0)} kcal</span>
-                  <span class="macro-mini">{fmt(x.proteinas ?? 0)} g prot</span>
-                  <span class="macro-mini">{fmt(x.carbohidratos ?? 0)} g carb</span>
-                  <span class="macro-mini">{fmt(x.grasas ?? 0)} g grasa</span>
+                  <span class="macro-mini">{@render icoProt()}{fmt(x.proteinas ?? 0)} g prot</span>
+                  <span class="macro-mini">{@render icoCarb()}{fmt(x.carbohidratos ?? 0)} g carb</span>
+                  <span class="macro-mini">{@render icoGrasa()}{fmt(x.grasas ?? 0)} g grasa</span>
                 </div>
 
                 {#if confirmandoEliminar === x.id}
@@ -1081,6 +1103,9 @@
   }
 
   .total-big {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
     font-weight: 700;
     font-size: 1.05rem;
     color: var(--ink);
@@ -1094,6 +1119,16 @@
   .total-big.macro {
     font-size: 0.85rem;
     padding: 0.25rem 0.55rem;
+  }
+
+  /* Ícono por macro (mancuerna=proteína, espiga=carbohidratos, gota=grasa) —
+     mismo glifo chiquito en .total-big.macro y .macro-mini, para reconocer
+     cada chip sin tener que leer el texto. */
+  .macro-ico {
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+    opacity: 0.7;
   }
 
   .total-big.kcal {
@@ -1225,6 +1260,9 @@
   }
 
   .macro-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--ink-soft);
