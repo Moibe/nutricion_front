@@ -264,27 +264,31 @@
                 <td class="col-fecha">{formatoFecha(f.fecha)}</td>
                 <td class="col-peso">
                   {#if f.peso !== null}
-                    {fmt(f.peso)}
+                    <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.peso)}</a>
                   {:else}
                     <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
                   {/if}
                 </td>
                 <td class="col-basal">
                   {#if f.kcalBasal !== null}
-                    {fmt(f.kcalBasal)}
+                    <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.kcalBasal)}</a>
                   {:else}
                     <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
                   {/if}
                 </td>
-                <td class="col-comidas">{fmt(f.kcalComidas)}</td>
-                <td class="col-ejercicio">{fmt(f.kcalEjercicio)}</td>
+                <td class="col-comidas">
+                  <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver/editar las comidas de este día">{fmt(f.kcalComidas)}</a>
+                </td>
+                <td class="col-ejercicio">
+                  <a class="celda-link" href="/ejercicio?fecha={f.fecha}" title="Ver/editar el ejercicio de este día">{fmt(f.kcalEjercicio)}</a>
+                </td>
                 <td
                   class="col-total"
                   class:superavit={f.total !== null && f.total >= 0}
                   class:deficit={f.total !== null && f.total < 0}
                 >
                   {#if f.total !== null}
-                    {fmt(f.total)}
+                    <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver el día completo">{fmt(f.total)}</a>
                   {:else}
                     <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
                   {/if}
@@ -483,6 +487,22 @@
     color: var(--ink);
     border-bottom-color: var(--ink);
     border-bottom-style: solid;
+  }
+
+  /* Celda con dato ya capturado: también clicable (a /peso, /hoy o
+     /ejercicio según la columna), pero sin el guion punteado de .vacio —
+     nada resalta hasta que pasas el mouse, para no perder el aspecto plano
+     tipo Excel. Mantiene el color heredado (incl. superávit/déficit de
+     .col-total) tanto en reposo como en hover, el subrayado es la única
+     señal de "esto es un link". */
+  .celda-link {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .celda-link:hover {
+    text-decoration: underline;
   }
 
   /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
