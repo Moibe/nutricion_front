@@ -176,6 +176,7 @@
       <span class="uso-label">Total</span>
       <span class="uso-value">{uso ? usd(uso.total.costo_usd) : '—'}</span>
     </span>
+    <span class="uso-moneda">USD</span>
   </a>
 {/snippet}
 
@@ -418,6 +419,19 @@
     width: 1px;
     margin: 0.1rem 0;
     background: rgba(26, 36, 0, 0.2);
+  }
+
+  /* Costos son un estimado en dólares (precios de OpenAI) — se aclara una
+     sola vez al final de la píldora, no repetida en cada valor, para no
+     saturar un espacio ya angosto. */
+  .uso-moneda {
+    font-size: 0.52rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: rgba(26, 36, 0, 0.55);
+    flex-shrink: 0;
+    align-self: flex-end;
+    margin-bottom: 0.05rem;
   }
 
   .mobile-footer {
