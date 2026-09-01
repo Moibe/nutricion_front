@@ -121,12 +121,9 @@
     fileInputEl?.click();
   }
 
-  function onImagenSeleccionada(e: Event) {
-    const archivo = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
-    // Limpiar el input ya — así elegir el MISMO archivo dos veces seguidas
-    // vuelve a disparar el evento change.
-    (e.currentTarget as HTMLInputElement).value = '';
-    if (!archivo) return;
+  // Compartido entre "elegir archivo" y "pegar" (Ctrl+V) — misma validación y
+  // lectura a data URI para cualquiera de las dos formas de adjuntar la foto.
+  function procesarImagenArchivo(archivo: File) {
     imagenError = null;
     if (!archivo.type.startsWith('image/')) {
       imagenError = 'Ese archivo no es una imagen.';
@@ -144,6 +141,33 @@
       imagenError = 'No se pudo leer la imagen.';
     };
     reader.readAsDataURL(archivo);
+  }
+
+  function onImagenSeleccionada(e: Event) {
+    const archivo = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+    // Limpiar el input ya — así elegir el MISMO archivo dos veces seguidas
+    // vuelve a disparar el evento change.
+    (e.currentTarget as HTMLInputElement).value = '';
+    if (archivo) procesarImagenArchivo(archivo);
+  }
+
+  // Pegar una imagen (Ctrl+V) directo en el campo de texto — copiada de un
+  // screenshot, del explorador de archivos, etc. Si el portapapeles trae una
+  // imagen se adjunta igual que con el botón de cámara; si trae texto, se
+  // deja el comportamiento normal del input.
+  function onPegarImagen(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const archivo = item.getAsFile();
+        if (archivo) {
+          e.preventDefault();
+          procesarImagenArchivo(archivo);
+        }
+        return;
+      }
+    }
   }
 
   function quitarImagen() {
@@ -597,6 +621,7 @@
       placeholder="¿Qué comiste?"
       bind:value={input}
       onkeydown={onKeydown}
+      onpaste={onPegarImagen}
       disabled={loading}
     />
     <button
