@@ -16,6 +16,7 @@
   //   precarga como si fuera el último turno ya respondido, y al seguir
   //   chateando + Guardar, el back hace upsert por conversation_id — así que
   //   ACTUALIZA esa fila en vez de crear una nueva.
+  import { tick } from 'svelte';
   import { env } from '$env/dynamic/public';
 
   type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
@@ -116,6 +117,15 @@
   let imagenBase64 = $state<string | null>(null);
   let imagenError = $state<string | null>(null);
   let fileInputEl = $state<HTMLInputElement | null>(null);
+  let composerEl = $state<HTMLDivElement | null>(null);
+
+  // Tras mandar un mensaje (o recibir la respuesta), llevar la vista hasta el
+  // composer — si no, en una conversación larga el usuario se queda viendo
+  // donde estaba antes y tiene que scrollear a mano para ver lo nuevo.
+  async function scrollAlFondo() {
+    await tick();
+    composerEl?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
 
   function elegirImagen() {
     fileInputEl?.click();
@@ -230,6 +240,7 @@
     imagenBase64 = null;
     loading = true;
     error = null;
+    void scrollAlFondo();
 
     // El contexto de edición se manda solo una vez (primer mensaje); después
     // el hilo de la conversación ya lo tiene.
@@ -271,6 +282,7 @@
             : String(e);
     } finally {
       loading = false;
+      void scrollAlFondo();
     }
   }
 
@@ -594,7 +606,7 @@
     </div>
   {/if}
 
-  <div class="composer">
+  <div class="composer" bind:this={composerEl}>
     <input
       bind:this={fileInputEl}
       type="file"
