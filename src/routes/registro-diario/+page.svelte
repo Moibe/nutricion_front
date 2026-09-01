@@ -259,20 +259,20 @@
         <table class="tabla-registro">
           <thead>
             <tr>
-              <th class="col-fecha">Fecha</th>
-              <th class="col-peso">Peso (kg)</th>
-              <th class="col-basal">Basal (kcal)</th>
-              <th class="col-comidas">Comidas (kcal)</th>
-              <th class="col-ejercicio">Ejercicio (kcal)</th>
-              <th class="col-total">Total (kcal)</th>
+              <th class="col-fecha"><span class="completo">Fecha</span><span class="compacto">Día</span></th>
+              <th class="col-peso"><span class="completo">Peso (kg)</span><span class="compacto">Peso</span></th>
+              <th class="col-basal"><span class="completo">Basal (kcal)</span><span class="compacto">Basal</span></th>
+              <th class="col-comidas"><span class="completo">Comidas (kcal)</span><span class="compacto">Comida</span></th>
+              <th class="col-ejercicio"><span class="completo">Ejercicio (kcal)</span><span class="compacto">Ejerc.</span></th>
+              <th class="col-total"><span class="completo">Total (kcal)</span><span class="compacto">Total</span></th>
             </tr>
           </thead>
           <tbody>
             {#each filas as f (f.fecha)}
               <tr class:hoy={f.fecha === hoyISO}>
                 <td class="col-fecha">
-                  <span class="fecha-larga">{formatoFecha(f.fecha)}</span>
-                  <span class="fecha-corta">{formatoFechaCorto(f.fecha)}</span>
+                  <span class="completo">{formatoFecha(f.fecha)}</span>
+                  <span class="compacto">{formatoFechaCorto(f.fecha)}</span>
                 </td>
                 <td class="col-peso">
                   {#if f.peso !== null}
@@ -438,7 +438,10 @@
     text-align: left;
   }
 
-  .fecha-corta {
+  /* Par de etiquetas que se intercambian por ancho: ambas se renderizan y el
+     CSS decide cuál se ve (ver media query al final). Se usa tanto en los
+     encabezados como en la celda de fecha. */
+  .compacto {
     display: none;
   }
 
@@ -569,15 +572,23 @@
     }
   }
 
-  /* Mismo breakpoint que Sidebar/TopNav/layout: abajo de 768px la fecha
-     larga se cambia por d/m para devolverle ancho a las columnas de kcal. */
+  /* Mismo breakpoint que Sidebar/TopNav/layout. Abajo de 768px la tabla
+     tiene que meter seis columnas en ~390px, así que: fecha en d/m,
+     encabezados sin unidad — el "(kcal)" se repetía en cuatro de las seis y
+     la línea de arriba ya explica que todo son calorías — y celdas con la
+     mitad del padding horizontal. */
   @media (max-width: 768px) {
-    .fecha-larga {
+    .completo {
       display: none;
     }
 
-    .fecha-corta {
+    .compacto {
       display: inline;
+    }
+
+    .tabla-registro th,
+    .tabla-registro td {
+      padding: 0.5rem 0.45rem;
     }
   }
 
