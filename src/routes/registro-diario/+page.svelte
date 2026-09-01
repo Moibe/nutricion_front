@@ -97,6 +97,15 @@
     });
   }
 
+  // Mobile: la columna de fecha compite con cinco columnas de kcal, así que
+  // se recorta a d/m. No se pierde información — el mes y el año ya los da
+  // el header de arriba, y la tabla nunca mezcla meses (está paginada por
+  // mes), así que el día basta para identificar el renglón.
+  function formatoFechaCorto(fecha: string) {
+    const [, m, d] = fecha.split('-').map(Number);
+    return `${d}/${m}`;
+  }
+
   // Edad AL DÍA de esa fila (no la de hoy) — un día de hace tiempo debe usar
   // la edad que tenías entonces, aunque sea prácticamente siempre la misma.
   function calcularEdad(fechaNacimiento: string, enFecha: string): number {
@@ -261,7 +270,10 @@
           <tbody>
             {#each filas as f (f.fecha)}
               <tr class:hoy={f.fecha === hoyISO}>
-                <td class="col-fecha">{formatoFecha(f.fecha)}</td>
+                <td class="col-fecha">
+                  <span class="fecha-larga">{formatoFecha(f.fecha)}</span>
+                  <span class="fecha-corta">{formatoFechaCorto(f.fecha)}</span>
+                </td>
                 <td class="col-peso">
                   {#if f.peso !== null}
                     <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.peso)}</a>
@@ -426,6 +438,10 @@
     text-align: left;
   }
 
+  .fecha-corta {
+    display: none;
+  }
+
   .tabla-registro thead th {
     background: #fafaf8;
     font-weight: 800;
@@ -550,6 +566,18 @@
     50% {
       transform: translateY(-50%) translateX(-4px);
       opacity: 1;
+    }
+  }
+
+  /* Mismo breakpoint que Sidebar/TopNav/layout: abajo de 768px la fecha
+     larga se cambia por d/m para devolverle ancho a las columnas de kcal. */
+  @media (max-width: 768px) {
+    .fecha-larga {
+      display: none;
+    }
+
+    .fecha-corta {
+      display: inline;
     }
   }
 
