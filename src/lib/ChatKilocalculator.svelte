@@ -67,7 +67,13 @@
     totales?: { kcal: number; proteinas_g: number; carbohidratos_g: number; grasas_g: number } | null;
   };
   type ChatResponse = { conversation_id: string; respuesta: Respuesta };
-  type Turn = { role: 'user'; text: string } | { role: 'assistant'; respuesta: Respuesta };
+  type Turn =
+    | { role: 'user'; text: string; imagen?: string }
+    | { role: 'assistant'; respuesta: Respuesta };
+
+  // Tope en el cliente para no ni siquiera intentar leer/mandar una foto
+  // gigante (el back tiene su propio tope, esto solo evita el viaje inútil).
+  const TOPE_IMAGEN_BYTES = 8 * 1024 * 1024;
 
   // Modo edición (viene preResultado): reusa el conversation_id original para
   // que al Guardar el back haga upsert sobre la MISMA fila, y arranca con un
@@ -105,6 +111,45 @@
   let input = $state('');
   let loading = $state(false);
   let error = $state<string | null>(null);
+
+  // Foto pendiente de enviar (se adjunta al próximo mensaje, o se manda sola).
+  let imagenBase64 = $state<string | null>(null);
+  let imagenError = $state<string | null>(null);
+  let fileInputEl = $state<HTMLInputElement | null>(null);
+
+  function elegirImagen() {
+    fileInputEl?.click();
+  }
+
+  function onImagenSeleccionada(e: Event) {
+    const archivo = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+    // Limpiar el input ya — así elegir el MISMO archivo dos veces seguidas
+    // vuelve a disparar el evento change.
+    (e.currentTarget as HTMLInputElement).value = '';
+    if (!archivo) return;
+    imagenError = null;
+    if (!archivo.type.startsWith('image/')) {
+      imagenError = 'Ese archivo no es una imagen.';
+      return;
+    }
+    if (archivo.size > TOPE_IMAGEN_BYTES) {
+      imagenError = 'La foto pesa demasiado (máx. 8 MB).';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      imagenBase64 = reader.result as string;
+    };
+    reader.onerror = () => {
+      imagenError = 'No se pudo leer la imagen.';
+    };
+    reader.readAsDataURL(archivo);
+  }
+
+  function quitarImagen() {
+    imagenBase64 = null;
+    imagenError = null;
+  }
 
   let savingIdx = $state<number | null>(null);
   let savedIdx = $state<Set<number>>(new Set());
@@ -153,10 +198,12 @@
 
   async function send() {
     const mensaje = input.trim();
-    if (!mensaje || loading) return;
+    const imagen = imagenBase64;
+    if ((!mensaje && !imagen) || loading) return;
 
-    turns = [...turns, { role: 'user', text: mensaje }];
+    turns = [...turns, { role: 'user', text: mensaje, imagen: imagen ?? undefined }];
     input = '';
+    imagenBase64 = null;
     loading = true;
     error = null;
 
@@ -169,7 +216,12 @@
       const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje, conversation_id: conversationId, contexto })
+        body: JSON.stringify({
+          mensaje,
+          conversation_id: conversationId,
+          contexto,
+          imagen_base64: imagen
+        })
       });
 
       if (!res.ok) {
@@ -338,6 +390,8 @@
     turns = [];
     error = null;
     input = '';
+    imagenBase64 = null;
+    imagenError = null;
     savingIdx = null;
     savedIdx = new Set();
     saveError = null;
@@ -415,7 +469,12 @@
 
     {#each turns as turn, i (i)}
       {#if turn.role === 'user'}
-        <div class="bubble user">{turn.text}</div>
+        <div class="bubble user">
+          {#if turn.imagen}
+            <img class="bubble-imagen" src={turn.imagen} alt="Foto del platillo enviada" />
+          {/if}
+          {#if turn.text}{turn.text}{/if}
+        </div>
       {:else if turn.respuesta.requiere_mas_informacion}
         <div class="bubble bot question">
           <span class="tag">Pregunta</span>
@@ -498,7 +557,41 @@
     {/if}
   </div>
 
+  {#if imagenError}
+    <div class="error">⚠️ {imagenError}</div>
+  {/if}
+
+  {#if imagenBase64}
+    <div class="imagen-pendiente">
+      <img src={imagenBase64} alt="Foto a enviar" />
+      <button type="button" class="imagen-quitar" onclick={quitarImagen} aria-label="Quitar foto" title="Quitar foto">
+        ×
+      </button>
+    </div>
+  {/if}
+
   <div class="composer">
+    <input
+      bind:this={fileInputEl}
+      type="file"
+      accept="image/*"
+      capture="environment"
+      class="imagen-input-oculto"
+      onchange={onImagenSeleccionada}
+    />
+    <button
+      type="button"
+      class="adjuntar-btn"
+      onclick={elegirImagen}
+      disabled={loading}
+      aria-label="Adjuntar foto del platillo"
+      title="Adjuntar foto del platillo"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z" />
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+    </button>
     <input
       type="text"
       placeholder="¿Qué comiste?"
@@ -506,7 +599,12 @@
       onkeydown={onKeydown}
       disabled={loading}
     />
-    <button type="button" class="send" onclick={send} disabled={loading || input.trim().length === 0}>
+    <button
+      type="button"
+      class="send"
+      onclick={send}
+      disabled={loading || (input.trim().length === 0 && !imagenBase64)}
+    >
       Enviar
     </button>
   </div>
@@ -685,10 +783,21 @@
      seleccionado/activo" de la app), no un tinte azul. */
   .bubble.user {
     align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     background: var(--ink);
     border-color: var(--ink);
     color: #ffffff;
     max-width: 80%;
+  }
+
+  .bubble-imagen {
+    display: block;
+    max-width: 100%;
+    max-height: 220px;
+    border-radius: 8px;
+    object-fit: cover;
   }
 
   .bubble.bot {
@@ -898,6 +1007,62 @@
     border-radius: 10px;
     padding: 0.6rem 0.85rem;
     font-size: 0.88rem;
+  }
+
+  .imagen-pendiente {
+    position: relative;
+    display: inline-block;
+    align-self: flex-start;
+  }
+
+  .imagen-pendiente img {
+    display: block;
+    max-height: 96px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+
+  .imagen-quitar {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .imagen-input-oculto {
+    display: none;
+  }
+
+  /* Mismo tratamiento visual que .ghost — secundario, no compite con Enviar. */
+  .adjuntar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 42px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: filter 0.18s ease;
+  }
+
+  .adjuntar-btn:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+
+  .adjuntar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .composer {
