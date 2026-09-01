@@ -905,6 +905,12 @@
     gap: 0.6rem;
     position: sticky;
     bottom: 0;
+    /* Sin fondo sólido, el texto de las burbujas anteriores se veía a
+       través/detrás del input al hacer scroll con una conversación larga —
+       este fondo + padding lo tapa y separa visualmente del log. */
+    background: #ffffff;
+    padding-top: 0.6rem;
+    margin-top: -0.3rem;
   }
 
   .composer input {
