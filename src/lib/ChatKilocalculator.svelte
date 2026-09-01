@@ -20,6 +20,14 @@
 
   type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
   type ResultadoGuardado = { id: number; conversation_id: string; platillo: string | null } & Macros;
+  type Favorito = {
+    id: number;
+    nombre: string;
+    kilocalorias: number | null;
+    proteinas: number | null;
+    carbohidratos: number | null;
+    grasas: number | null;
+  };
   type PreResultado = {
     platillo: string | null;
     kilocalorias: number | null;
@@ -101,6 +109,25 @@
   let savingIdx = $state<number | null>(null);
   let savedIdx = $state<Set<number>>(new Set());
   let saveError = $state<string | null>(null);
+
+  // Favoritos: platillos ya calculados por la IA que el usuario decide
+  // "recordar" para reusarlos con un tap (POST directo a /consumos, sin pasar
+  // por /chat) en vez de volver a describirlos y gastar otra llamada.
+  let favoritos = $state<Favorito[]>([]);
+  let guardandoFavoritoIdx = $state<number | null>(null);
+  let favoritedIdx = $state<Set<number>>(new Set());
+  let usandoFavoritoId = $state<number | null>(null);
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/favoritos`);
+        if (res.ok) favoritos = (await res.json()) as Favorito[];
+      } catch {
+        // Best-effort: si falla, simplemente no se muestran frecuentes.
+      }
+    })();
+  });
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
@@ -218,6 +245,94 @@
     }
   }
 
+  // Guarda el resultado de la burbuja `i` como favorito (POST /favoritos),
+  // independiente de si ya se guardó como consumo de hoy — es "recordar la
+  // receta", no "registrarla hoy".
+  async function guardarComoFavorito(i: number, r: Respuesta) {
+    if (guardandoFavoritoIdx !== null || favoritedIdx.has(i) || !r.platillo) return;
+    const m = macros(r);
+    if (!m) return;
+    guardandoFavoritoIdx = i;
+    saveError = null;
+    try {
+      const res = await fetch(`${API_URL}/favoritos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: r.platillo, ...m })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const nuevo = (await res.json()) as Favorito;
+      favoritos = [nuevo, ...favoritos];
+      favoritedIdx = new Set(favoritedIdx).add(i);
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      guardandoFavoritoIdx = null;
+    }
+  }
+
+  // Usar un favorito: salta la IA por completo, POST directo a /consumos con
+  // las macros ya guardadas. conversation_id se sintetiza aquí mismo (no hay
+  // conversación real de por medio) — tiene que ser único porque el back
+  // hace upsert por ese campo, y cada tap es un consumo nuevo, no una edición.
+  async function usarFavorito(fav: Favorito) {
+    if (usandoFavoritoId !== null) return;
+    usandoFavoritoId = fav.id;
+    saveError = null;
+    try {
+      const cid = crypto.randomUUID();
+      const res = await fetch(`${API_URL}/consumos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: cid,
+          comida_id: comidaId,
+          platillo: fav.nombre,
+          kilocalorias: fav.kilocalorias,
+          proteinas: fav.proteinas,
+          carbohidratos: fav.carbohidratos,
+          grasas: fav.grasas
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { id: number };
+      onGuardado?.({
+        id: data.id,
+        conversation_id: cid,
+        platillo: fav.nombre,
+        kilocalorias: fav.kilocalorias ?? 0,
+        proteinas: fav.proteinas ?? 0,
+        carbohidratos: fav.carbohidratos ?? 0,
+        grasas: fav.grasas ?? 0
+      });
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      usandoFavoritoId = null;
+    }
+  }
+
+  async function eliminarFavorito(fav: Favorito) {
+    const anteriores = favoritos;
+    favoritos = favoritos.filter((f) => f.id !== fav.id);
+    try {
+      const res = await fetch(`${API_URL}/favoritos/${fav.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      favoritos = anteriores;
+    }
+  }
+
   function reset() {
     conversationId = null;
     turns = [];
@@ -260,10 +375,40 @@
 
   <div class="log">
     {#if turns.length === 0}
+      {#if favoritos.length > 0}
+        <div class="empty favoritos-wrap">
+          <p>Tus frecuentes:</p>
+          <div class="favoritos-list">
+            {#each favoritos as fav (fav.id)}
+              <span class="favorito-chip" class:usando={usandoFavoritoId === fav.id}>
+                <button
+                  type="button"
+                  class="favorito-btn"
+                  onclick={() => usarFavorito(fav)}
+                  disabled={usandoFavoritoId !== null}
+                >
+                  {fav.nombre}{fav.kilocalorias != null ? ` · ${fmt(fav.kilocalorias)} kcal` : ''}
+                  {usandoFavoritoId === fav.id ? '…' : ''}
+                </button>
+                <button
+                  type="button"
+                  class="favorito-borrar"
+                  onclick={() => eliminarFavorito(fav)}
+                  disabled={usandoFavoritoId !== null}
+                  aria-label={`Quitar ${fav.nombre} de frecuentes`}
+                  title="Quitar de frecuentes"
+                >
+                  ×
+                </button>
+              </span>
+            {/each}
+          </div>
+        </div>
+      {/if}
       <div class="empty">
         <p>Prueba con algo como:</p>
         <button type="button" class="suggestion" onclick={() => (input = 'Me comí unos tacos al pastor.')}>
-          “Me comí unos tacos al pastor.”
+          "Me comí unos tacos al pastor."
         </button>
       </div>
     {/if}
@@ -318,6 +463,18 @@
                   {savingIdx === i ? 'Guardando…' : 'Guardar'}
                 </button>
                 <span class="guardar-flecha guardar-flecha-out" aria-hidden="true">«</span>
+              {/if}
+              {#if turn.respuesta.platillo}
+                <button
+                  type="button"
+                  class="fav-btn"
+                  class:activo={favoritedIdx.has(i)}
+                  onclick={() => guardarComoFavorito(i, turn.respuesta)}
+                  disabled={guardandoFavoritoIdx !== null || favoritedIdx.has(i)}
+                  title="Guardar como frecuente para no volver a escribirlo"
+                >
+                  {favoritedIdx.has(i) ? '★ Frecuente' : guardandoFavoritoIdx === i ? '☆ …' : '☆ Frecuente'}
+                </button>
               {/if}
             </div>
           {/if}
@@ -452,6 +609,69 @@
     background: var(--volt);
     border-color: var(--volt);
     border-style: solid;
+  }
+
+  .favoritos-wrap {
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .favoritos-list {
+    margin-top: 0.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .favorito-chip {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .favorito-chip.usando {
+    opacity: 0.6;
+  }
+
+  .favorito-btn {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0.7rem;
+    color: var(--ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+  }
+
+  .favorito-btn:hover:not(:disabled) {
+    background: var(--volt);
+  }
+
+  .favorito-btn:disabled {
+    cursor: not-allowed;
+  }
+
+  .favorito-borrar {
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--line);
+    padding: 0.4rem 0.55rem;
+    color: rgba(15, 23, 42, 0.4);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  .favorito-borrar:hover:not(:disabled) {
+    color: #dc2626;
+  }
+
+  .favorito-borrar:disabled {
+    cursor: not-allowed;
   }
 
   .bubble {
@@ -617,6 +837,35 @@
     font-size: 0.85rem;
     font-weight: 600;
     color: #15803d;
+  }
+
+  /* Secundario respecto a Guardar (outline, no volt sólido) — "recordar la
+     receta" no compite con "registrarla hoy". */
+  .fav-btn {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 0.4rem 0.7rem;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: filter 0.18s ease;
+  }
+
+  .fav-btn:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+
+  .fav-btn:disabled {
+    cursor: not-allowed;
+  }
+
+  .fav-btn.activo {
+    background: rgba(21, 128, 61, 0.08);
+    border-color: rgba(21, 128, 61, 0.3);
+    color: #15803d;
+    opacity: 1;
   }
 
   .loading {
