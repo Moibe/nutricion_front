@@ -18,6 +18,7 @@
   // conversation_id), precargada con el resultado ya guardado, para seguir
   // chateando y corregirlo. Al guardar de nuevo, el back hace upsert por
   // conversation_id, así que ACTUALIZA esa fila en vez de crear una nueva.
+  import { tick } from 'svelte';
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
 
@@ -109,6 +110,25 @@
   // aunque cambies de comida activa — "quiero ver esta aunque no sea con la
   // que trabajo" es una decisión que se respeta).
   let colapsoManual = $state<Record<number, boolean>>({});
+
+  // Referencia al nodo de cada tarjeta (se llenan con bind:this en el #each),
+  // para poder brincar a la que se acaba de activar.
+  let cardEls = $state<Record<number, HTMLDivElement | null>>({});
+
+  // En mobile los botones de tipo viven arriba del fold y el chat aparece
+  // abajo, fuera de pantalla: activar una comida se sentía como que el tap no
+  // hizo nada y había que scrollear a ciegas a buscarlo. En desktop no aplica
+  // — ahí botones y chat caben juntos, y un scroll automático sería un salto
+  // gratuito.
+  async function brincarAlChat(comidaId: number) {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 768px)').matches) return;
+    // El panel del chat se monta en el render que dispara este cambio de
+    // estado, así que sin tick() la tarjeta todavía mide lo que medía
+    // replegada y el scroll queda corto.
+    await tick();
+    cardEls[comidaId]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   function estaColapsada(comidaId: number): boolean {
     if (comidaId === expandedId) return false;
@@ -244,6 +264,7 @@
       // una vez en vez de dejar al usuario un clic extra en "+ Agregar consumo".
       expandedId = data.id;
       editandoConsumo = null;
+      brincarAlChat(data.id);
     } catch (e) {
       errorAccion =
         e instanceof TypeError
@@ -346,6 +367,8 @@
     const existente = comidasVisibles.find((c) => c.tipo === tipo && c.orden === orden);
     if (existente) {
       toggleExpand(existente.id);
+      // Solo al abrir: si el tap la replegó, brincar ahí sería desconcertante.
+      if (expandedId === existente.id) brincarAlChat(existente.id);
     } else {
       crearComida(label, tipo, orden);
     }
@@ -617,7 +640,7 @@
   {:else}
     <div class="cards">
       {#each comidasVisibles as c (c.id)}
-        <div class="card">
+        <div class="card" bind:this={cardEls[c.id]}>
           <div class="card-head">
             <div class="card-head-scroll">
               <span class="card-label">{etiqueta(c)}</span>
@@ -947,6 +970,11 @@
     border-radius: 14px;
     background: #ffffff;
     border: 1px solid var(--line);
+    /* Aire al brincar a una tarjeta. Basta con poco: quien scrollea es
+       .work-scroll (el layout), cuyo tope ya está por debajo de la topnav
+       fixed — no hay barra que esquivar, solo que la tarjeta no quede pegada
+       al borde del contenedor. */
+    scroll-margin-top: 0.5rem;
   }
 
   .card-head {
