@@ -15,7 +15,7 @@
     onSeleccionar: (fecha: string) => void;
   } = $props();
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   // "Hoy" en CDMX, misma zona con la que el back sella cada comida.
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });

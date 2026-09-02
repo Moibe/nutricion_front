@@ -12,7 +12,7 @@
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX).
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });

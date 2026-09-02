@@ -27,7 +27,7 @@
     fechaFiltro = null
   }: { soloHoy?: boolean; fechaFiltro?: string | null } = $props();
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   type Consumo = {
     id: number;

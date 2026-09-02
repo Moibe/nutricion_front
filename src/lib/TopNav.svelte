@@ -10,8 +10,15 @@
   // aquí (antes vivía en el sidebar) — solo ícono, arriba a la derecha.
   import { page } from '$app/state';
 
-  let { mobileOpen = false, toggleMobile }: { mobileOpen?: boolean; toggleMobile?: () => void } =
-    $props();
+  let {
+    mobileOpen = false,
+    toggleMobile,
+    usuario = null
+  }: {
+    mobileOpen?: boolean;
+    toggleMobile?: () => void;
+    usuario?: { id: number; nombre: string } | null;
+  } = $props();
 
   let tiltX = $state(0);
   let tiltY = $state(0);
@@ -86,6 +93,27 @@
       <path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
   </a>
+
+  {#if usuario}
+    <span class="usuario-nombre">{usuario.nombre}</span>
+    <a href="/logout" class="salir-btn" aria-label="Salir" title="Salir">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="M16 17l5-5-5-5" />
+        <path d="M21 12H9" />
+      </svg>
+    </a>
+  {/if}
 </header>
 
 <style>
@@ -194,5 +222,43 @@
   .calendario-btn[aria-current='page'] {
     background: var(--ink);
     border-color: var(--ink);
+  }
+
+  .usuario-nombre {
+    margin-left: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    /* En mobile no cabe junto al hamburguesa + marca + calendario + salir --
+       el ícono de salir solo ya identifica la acción sin el nombre. */
+    display: none;
+  }
+
+  @media (min-width: 560px) {
+    .usuario-nombre {
+      display: inline;
+    }
+  }
+
+  .salir-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+
+  .salir-btn:hover {
+    background: var(--volt);
+    border-color: var(--volt);
   }
 </style>

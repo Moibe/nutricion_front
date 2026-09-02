@@ -32,7 +32,7 @@
   // Marca el item activo según la ruta. Los placeholders a "/" nunca se marcan.
   const isActive = (href: string) => href !== '/' && page.url.pathname === href;
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   type Bloque = { llamadas: number; input_tokens: number; output_tokens: number; costo_usd: number };
   type Uso = { modelo: string; precio_input_usd_por_1m: number; precio_output_usd_por_1m: number; total: Bloque; mes: Bloque; hoy: Bloque };

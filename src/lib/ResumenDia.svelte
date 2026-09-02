@@ -10,7 +10,7 @@
 
   let { fecha }: { fecha: string } = $props();
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   type Consumo = { kilocalorias: number | null };
   type Comida = { fecha: string; consumos: Consumo[] };

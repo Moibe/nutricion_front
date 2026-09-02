@@ -4,7 +4,8 @@
   import Sidebar from '$lib/Sidebar.svelte';
   import TopNav from '$lib/TopNav.svelte';
 
-  let { children } = $props();
+  let { children, data } = $props();
+  const esLogin = $derived(page.url.pathname === '/login');
   let collapsed = $state(false);
   // Drawer de mobile — independiente de `collapsed` (que es la preferencia de
   // escritorio). En mobile el sidebar fijo es demasiado ancho, así que se
@@ -40,6 +41,24 @@
     page.url.pathname;
     mobileOpen = false;
   });
+
+  // El guard de hooks.server.ts solo protege NAVEGACIONES -- si la sesión se
+  // revoca (o expira) mientras ya estás adentro, un fetch normal a /api/*
+  // simplemente devuelve 401 sin mandarte a ningún lado. Este parche global
+  // detecta ESE caso y manda a /login sin que cada componente tenga que
+  // revisar el status uno por uno.
+  $effect(() => {
+    if (esLogin) return;
+    const original = window.fetch;
+    window.fetch = async (...args) => {
+      const res = await original(...args);
+      if (res.status === 401) window.location.href = '/login';
+      return res;
+    };
+    return () => {
+      window.fetch = original;
+    };
+  });
 </script>
 
 <svelte:head>
@@ -47,13 +66,17 @@
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-<TopNav {mobileOpen} {toggleMobile} />
-<Sidebar {collapsed} {toggleCollapsed} {mobileOpen} {closeMobile} />
-<main class={collapsed ? 'collapsed' : ''}>
-  <div class="work-scroll">
-    {@render children()}
-  </div>
-</main>
+{#if esLogin}
+  {@render children()}
+{:else}
+  <TopNav {mobileOpen} {toggleMobile} usuario={data.usuario} />
+  <Sidebar {collapsed} {toggleCollapsed} {mobileOpen} {closeMobile} />
+  <main class={collapsed ? 'collapsed' : ''}>
+    <div class="work-scroll">
+      {@render children()}
+    </div>
+  </main>
+{/if}
 
 <style>
   :global(:root) {

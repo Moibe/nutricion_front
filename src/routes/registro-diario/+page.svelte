@@ -6,7 +6,7 @@
   // client-side (mismo patrón que el resto de la app).
   import { env } from '$env/dynamic/public';
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX), para
   // marcar el renglón de hoy con las flechitas animadas.
