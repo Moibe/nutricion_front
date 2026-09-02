@@ -21,12 +21,14 @@
     collapsed = false,
     toggleCollapsed,
     mobileOpen = false,
-    closeMobile
+    closeMobile,
+    usuario = null
   }: {
     collapsed?: boolean;
     toggleCollapsed: () => void;
     mobileOpen?: boolean;
     closeMobile?: () => void;
+    usuario?: { id: number; nombre: string } | null;
   } = $props();
 
   // Marca el item activo según la ruta. Los placeholders a "/" nunca se marcan.
@@ -158,6 +160,25 @@
     </svg>
     <span>Ejercicio Hoy</span>
   </a>
+  {#if usuario?.id === 1}
+    <a href="/admin" class="nav-item" aria-current={isActive('/admin') ? 'page' : undefined}>
+      <svg
+        class="nav-ico admin"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <circle cx="10" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+      <span>Usuarios</span>
+    </a>
+  {/if}
 {/snippet}
 
 {#snippet usoPill()}
@@ -327,6 +348,10 @@
     color: rgba(219, 39, 119, 0.75);
   }
 
+  .nav-ico.admin {
+    color: rgba(180, 83, 9, 0.75);
+  }
+
   .nav-item:hover {
     background: rgba(15, 15, 15, 0.05);
     border-color: var(--line);
@@ -356,6 +381,10 @@
 
   .nav-item[aria-current='page'] .nav-ico.registro {
     color: #db2777;
+  }
+
+  .nav-item[aria-current='page'] .nav-ico.admin {
+    color: #b45309;
   }
 
   .sidebar-footer {

@@ -45,14 +45,20 @@
   // El guard de hooks.server.ts solo protege NAVEGACIONES -- si la sesión se
   // revoca (o expira) mientras ya estás adentro, un fetch normal a /api/*
   // simplemente devuelve 401 sin mandarte a ningún lado. Este parche global
-  // detecta ESE caso y manda a /login sin que cada componente tenga que
-  // revisar el status uno por uno.
+  // detecta ESE caso y te saca sin que cada componente tenga que revisar el
+  // status uno por uno.
+  //
+  // A /logout, NO a /login directo: la cookie sigue firmada correctamente
+  // (lo que cambió fue token_version en la DB, no la firma HMAC -- eso
+  // hooks.server.ts no lo puede saber sin preguntarle a la API), así que
+  // para hooks.server.ts seguís "logueado" y un goto a /login rebota de
+  // vuelta a "/" en un loop infinito. /logout SÍ borra la cookie primero.
   $effect(() => {
     if (esLogin) return;
     const original = window.fetch;
     window.fetch = async (...args) => {
       const res = await original(...args);
-      if (res.status === 401) window.location.href = '/login';
+      if (res.status === 401) window.location.href = '/logout';
       return res;
     };
     return () => {
@@ -70,7 +76,7 @@
   {@render children()}
 {:else}
   <TopNav {mobileOpen} {toggleMobile} usuario={data.usuario} />
-  <Sidebar {collapsed} {toggleCollapsed} {mobileOpen} {closeMobile} />
+  <Sidebar {collapsed} {toggleCollapsed} {mobileOpen} {closeMobile} usuario={data.usuario} />
   <main class={collapsed ? 'collapsed' : ''}>
     <div class="work-scroll">
       {@render children()}
