@@ -854,7 +854,10 @@
     display: flex;
     flex-direction: column;
     gap: 1.2rem;
-    max-width: 640px;
+    /* 640px se quedó corto por ~45px desde que se agregaron los íconos de
+       macros (prot/carb/grasa) -- la fecha compacta de la fila colapsada
+       terminaba recortada por el scroll-fallback de .card-head-scroll. */
+    max-width: 700px;
     margin: 0 auto;
     color: rgba(15, 23, 42, 0.9);
   }
