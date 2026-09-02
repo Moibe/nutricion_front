@@ -1117,6 +1117,11 @@
 
   .composer input {
     flex: 1;
+    /* Los <input> traen min-width:auto, que en un flex item resuelve al ancho
+       intrínseco del control (~20 caracteres, aquí 227px de los 280 que mide
+       la tarjeta en un iPhone): sin esto el campo se niega a encogerse, se
+       come todo el renglón y empuja el botón Enviar fuera de la tarjeta. */
+    min-width: 0;
     padding: 0.7rem 0.95rem;
     border-radius: 10px;
     border: 1px solid var(--line);
@@ -1133,6 +1138,9 @@
 
   /* CTA principal del composer: mismo volt sólido que .save-btn. */
   .send {
+    /* Nunca se encoge: es el CTA, y su etiqueta no debe partirse ni
+       recortarse cuando el renglón va apretado — quien cede es el campo. */
+    flex-shrink: 0;
     padding: 0.7rem 1.3rem;
     border-radius: 10px;
     border: 1px solid var(--volt);
@@ -1151,5 +1159,26 @@
   .send:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* En un iPhone la tarjeta deja ~280px para el composer, y cámara + campo +
+     Enviar suman más: aunque el campo ya no empuja al botón fuera (min-width:
+     0 arriba), encogerlo tanto recorta el placeholder. Así que abajo de 768px
+     el campo se lleva un renglón completo (order:-1 lo sube antes de la
+     cámara, que en el DOM va primero) y los dos botones se reparten el de
+     abajo, con Enviar llenando lo que sobra. */
+  @media (max-width: 768px) {
+    .composer {
+      flex-wrap: wrap;
+    }
+
+    .composer input[type='text'] {
+      order: -1;
+      flex-basis: 100%;
+    }
+
+    .send {
+      flex: 1;
+    }
   }
 </style>
