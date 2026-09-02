@@ -31,11 +31,14 @@ export const actions: Actions = {
     const datos = await request.formData();
     const nombre = String(datos.get('nombre') ?? '').trim();
     if (!nombre) return fail(400, { error: 'Escribe un nombre.' });
+    // Código opcional: si el admin escribió uno (para que sea memorable), se
+    // usa tal cual; si lo dejó vacío, el back genera uno aleatorio.
+    const codigo = String(datos.get('codigo') ?? '').trim() || undefined;
 
     const res = await apiFetch(locals.usuario, '/admin/usuarios', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre })
+      body: JSON.stringify({ nombre, codigo_acceso: codigo })
     });
     if (!res.ok) return fail(res.status, { error: await detalleError(res, 'No se pudo crear el usuario.') });
 
@@ -70,8 +73,13 @@ export const actions: Actions = {
     const datos = await request.formData();
     const id = Number(datos.get('id'));
     const nombre = String(datos.get('nombre') ?? '');
+    const codigo = String(datos.get('codigo') ?? '').trim() || undefined;
 
-    const res = await apiFetch(locals.usuario, `/admin/usuarios/${id}/regenerar-codigo`, { method: 'POST' });
+    const res = await apiFetch(locals.usuario, `/admin/usuarios/${id}/regenerar-codigo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo_acceso: codigo })
+    });
     if (!res.ok) return fail(res.status, { error: await detalleError(res, 'No se pudo regenerar el código.') });
 
     const data = (await res.json()) as { codigo_acceso: string };
