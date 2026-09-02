@@ -4,7 +4,7 @@
   // en USD, calculado con los precios de gpt-4.1 (configurables en el back).
   import { env } from '$env/dynamic/public';
 
-  const API_URL = env.PUBLIC_API_URL ?? 'http://localhost:8000';
+  const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   type Bloque = {
     llamadas: number;
