@@ -149,6 +149,38 @@
   let confirmandoEliminarComida = $state<number | null>(null);
   let eliminandoComidaId = $state<number | null>(null);
 
+  // Guardar un consumo YA guardado como favorito (POST directo a /favoritos,
+  // sin pasar por el chat) — para el caso "esto que ya comí antes lo quiero
+  // recordar", distinto del ☆ que ya existe en ChatKilocalculator justo
+  // después de calcularlo con la IA.
+  let guardandoFavoritoId = $state<number | null>(null);
+  let favoritoGuardadoIds = $state<Set<number>>(new Set());
+
+  async function guardarConsumoComoFavorito(x: Consumo) {
+    if (guardandoFavoritoId !== null || favoritoGuardadoIds.has(x.id) || !x.platillo) return;
+    guardandoFavoritoId = x.id;
+    errorAccion = null;
+    try {
+      const res = await fetch(`${API_URL}/favoritos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: x.platillo,
+          kilocalorias: x.kilocalorias,
+          proteinas: x.proteinas,
+          carbohidratos: x.carbohidratos,
+          grasas: x.grasas
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      favoritoGuardadoIds = new Set(favoritoGuardadoIds).add(x.id);
+    } catch {
+      errorAccion = 'No se pudo guardar como frecuente.';
+    } finally {
+      guardandoFavoritoId = null;
+    }
+  }
+
   // En /hoy: solo las del día, ordenadas por secuencia (orden) — importante
   // porque las recién creadas se agregan al final del array local. En
   // /calendario: solo las del día elegido, mismo orden por secuencia.
@@ -741,6 +773,32 @@
                 <div class="consumo-head">
                   {#if x.platillo}<span class="consumo-platillo">{x.platillo}</span>{/if}
                   <div class="consumo-acciones">
+                    {#if x.platillo}
+                      <button
+                        type="button"
+                        class="icon-btn fav-consumo-btn"
+                        class:activo={favoritoGuardadoIds.has(x.id)}
+                        onclick={() => guardarConsumoComoFavorito(x)}
+                        disabled={guardandoFavoritoId !== null || favoritoGuardadoIds.has(x.id)}
+                        aria-label={favoritoGuardadoIds.has(x.id) ? 'Ya guardado como frecuente' : 'Guardar como frecuente'}
+                        title={favoritoGuardadoIds.has(x.id) ? 'Ya guardado como frecuente' : 'Guardar como frecuente'}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill={favoritoGuardadoIds.has(x.id) ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path
+                            d="M12 3.5l2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9Z"
+                          />
+                        </svg>
+                      </button>
+                    {/if}
                     <button
                       type="button"
                       class="icon-btn"
@@ -1241,6 +1299,14 @@
 
   .icon-btn:hover {
     color: var(--ink);
+  }
+
+  .icon-btn:disabled {
+    cursor: not-allowed;
+  }
+
+  .fav-consumo-btn.activo {
+    color: #15803d;
   }
 
   .confirmar-eliminar {
