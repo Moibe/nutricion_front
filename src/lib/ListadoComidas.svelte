@@ -1020,8 +1020,9 @@
     flex-shrink: 0;
   }
 
-  /* Chevron del acordeón: apunta hacia abajo (expandida) o gira 90° hacia la
-     derecha (replegada) — mismo giro que un <details> nativo. */
+  /* Chevron del acordeón, estilo dropdown: apunta hacia ABAJO cuando está
+     replegada (da la impresión de que al tocarla despliega hacia abajo) y
+     gira 180° hacia ARRIBA cuando está expandida (para replegarla). */
   .card-chevron {
     flex-shrink: 0;
   }
@@ -1030,8 +1031,8 @@
     transition: transform 0.18s ease;
   }
 
-  .card-chevron.colapsada svg {
-    transform: rotate(-90deg);
+  .card-chevron:not(.colapsada) svg {
+    transform: rotate(180deg);
   }
 
   .card-label {
