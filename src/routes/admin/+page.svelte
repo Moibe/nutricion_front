@@ -148,6 +148,14 @@
             >
               <input type="hidden" name="id" value={u.id} />
               <input type="hidden" name="nombre" value={u.nombre} />
+              <input
+                type="text"
+                name="codigo"
+                placeholder="opcional"
+                class="codigo-custom-input"
+                disabled={enviandoId === u.id}
+                title="Déjalo vacío para uno al azar, o escribe uno memorable"
+              />
               <button type="submit" class="accion-btn" disabled={enviandoId === u.id}>
                 {enviandoId === u.id ? '…' : 'Nuevo código'}
               </button>
@@ -205,8 +213,20 @@
       }}
     >
       <input type="text" name="nombre" placeholder="Nombre" autocomplete="off" disabled={creando} />
+      <input
+        type="text"
+        name="codigo"
+        placeholder="Código (opcional)"
+        autocomplete="off"
+        disabled={creando}
+        title="Déjalo vacío para uno al azar, o escribe uno memorable"
+      />
       <button type="submit" disabled={creando}>{creando ? 'Creando…' : 'Agregar'}</button>
     </form>
+    <p class="agregar-hint">
+      Un código memorable es más cómodo, pero también más fácil de adivinar que uno al azar — bien
+      para unas cuantas personas de confianza.
+    </p>
   </div>
 </section>
 
@@ -475,6 +495,35 @@
   .agregar button:disabled,
   .agregar input:disabled {
     opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .agregar-hint {
+    margin: 0.6rem 0 0;
+    font-size: 0.76rem;
+    color: var(--ink-soft);
+  }
+
+  /* Compañero angosto de "Nuevo código" -- mismo alto que .accion-btn, pero
+     angosto (es opcional, no debe competir visualmente con el botón). */
+  .codigo-custom-input {
+    width: 92px;
+    padding: 0.35rem 0.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.78rem;
+  }
+
+  .codigo-custom-input:focus {
+    outline: none;
+    border-color: var(--ink);
+  }
+
+  .codigo-custom-input:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 </style>
