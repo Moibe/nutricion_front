@@ -3,10 +3,7 @@
 // los componentes existentes no cambian -- solo su fallback de PUBLIC_API_URL
 // pasa a ser '/api', así que terminan pegándole aquí en vez de al backend.
 import type { RequestEvent, RequestHandler } from './$types';
-import { env } from '$env/dynamic/private';
-
-const API_ORIGIN = env.API_ORIGIN ?? 'http://127.0.0.1:8002';
-const INTERNAL_TOKEN = env.INTERNAL_TOKEN ?? '';
+import { API_ORIGIN, headersDe } from '$lib/server/api';
 
 const SIN_CUERPO = new Set(['GET', 'HEAD', 'DELETE']);
 
@@ -23,12 +20,9 @@ async function proxiar({ params, request, url, locals }: RequestEvent): Promise<
 
   const destino = `${API_ORIGIN}/${params.ruta ?? ''}${url.search}`;
 
-  const headers = new Headers();
+  const headers = new Headers(headersDe(locals.usuario));
   const contentType = request.headers.get('content-type');
   if (contentType) headers.set('content-type', contentType);
-  headers.set('X-Internal-Token', INTERNAL_TOKEN);
-  headers.set('X-Usuario-Id', String(locals.usuario.id));
-  headers.set('X-Token-Version', String(locals.usuario.tokenVersion));
 
   const init: RequestInit = { method: request.method, headers };
   if (!SIN_CUERPO.has(request.method)) {
