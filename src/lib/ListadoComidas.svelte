@@ -1329,13 +1329,16 @@
   .icon-btn {
     background: none;
     border: none;
+    border-radius: 6px;
     padding: 0.15rem;
     color: rgba(15, 15, 15, 0.4);
     cursor: pointer;
     display: inline-flex;
+    transition: background 0.15s ease, color 0.15s ease;
   }
 
-  .icon-btn:hover {
+  .icon-btn:hover:not(:disabled) {
+    background: rgba(15, 15, 15, 0.08);
     color: var(--ink);
   }
 
