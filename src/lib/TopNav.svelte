@@ -69,6 +69,14 @@
     <span class="brand-title">Kcal</span>
   </a>
 
+  <a
+    href="/registro-diario"
+    class="totales-link"
+    aria-current={page.url.pathname === '/registro-diario' ? 'page' : undefined}
+  >
+    Totales
+  </a>
+
   <span class="spacer"></span>
 
   <a
@@ -158,9 +166,67 @@
     border-color: var(--volt);
   }
 
+  /* Atajo al Registro Diario, solo en mobile: ahí el sidebar se reemplaza por
+     el drawer y el menú entero queda detrás de la hamburguesa, así que el
+     destino más usado necesita estar a la vista. En desktop no aparece — el
+     sidebar ya lo lista y sería un duplicado.
+     Centrado de verdad (absolute + translate) en vez de por flex: los grupos
+     de los lados no miden lo mismo, así que en flujo quedaría descentrado. */
+  .totales-link {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+
+  .totales-link:hover {
+    background: var(--volt);
+    border-color: var(--volt);
+  }
+
+  .totales-link[aria-current='page'] {
+    background: var(--volt);
+    border-color: var(--volt);
+  }
+
   @media (max-width: 768px) {
     .hamburger {
       display: inline-flex;
+    }
+
+    .totales-link {
+      display: inline-flex;
+    }
+  }
+
+  /* Abajo de 480px el link centrado ya no cabe junto al wordmark: en un
+     iPhone "Totales" se encimaba con "Kcal". Se deja solo la flama (sigue
+     siendo el link a inicio) — el nombre de la app no se pierde, está en la
+     pestaña y en el drawer. */
+  @media (max-width: 480px) {
+    .brand-title {
+      display: none;
+    }
+  }
+
+  /* Muy angosto (SE y similares): además hay que apretar el link para no
+     tocar el botón de calendario. */
+  @media (max-width: 360px) {
+    .totales-link {
+      padding: 0.35rem 0.55rem;
+      font-size: 0.8rem;
     }
   }
 
