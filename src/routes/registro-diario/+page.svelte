@@ -588,7 +588,21 @@
 
     .tabla-registro th,
     .tabla-registro td {
-      padding: 0.5rem 0.45rem;
+      padding: 0.5rem 0.25rem;
+    }
+
+    /* Con seis columnas, el ancho real disponible en un iPhone (~322px, ya
+       descontando main + .work-scroll + el padding de la tarjeta) no alcanza
+       ni con los encabezados cortos y el padding apretado. Bajar un punto la
+       tipografía es lo que falta para que quepan las seis sin quitar
+       ninguna. */
+    .tabla-registro {
+      font-size: 0.75rem;
+    }
+
+    .tabla-registro thead th {
+      font-size: 0.62rem;
+      letter-spacing: 0.02em;
     }
   }
 
