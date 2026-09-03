@@ -118,6 +118,7 @@
   let imagenError = $state<string | null>(null);
   let fileInputEl = $state<HTMLInputElement | null>(null);
   let composerEl = $state<HTMLDivElement | null>(null);
+  let inputEl = $state<HTMLInputElement | null>(null);
 
   // Tras mandar un mensaje (o recibir la respuesta), llevar la vista hasta el
   // composer — si no, en una conversación larga el usuario se queda viendo
@@ -147,6 +148,17 @@
     const alto = composerEl?.offsetHeight ?? 0;
     el.style.scrollMarginBottom = `${alto + 12}px`;
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // La sugerencia ya no precarga una frase completa: antes ponía "Me comí
+  // unos tacos al pastor." y quien la tocaba se quedaba con un texto ajeno
+  // que había que borrar a mano (incómodo en mobile). Ahora solo siembra el
+  // arranque y deja el cursor al final para seguir dictando/escribiendo.
+  async function usarSugerencia() {
+    input = 'Comí ';
+    await tick();
+    inputEl?.focus();
+    inputEl?.setSelectionRange(input.length, input.length);
   }
 
   function elegirImagen() {
@@ -526,8 +538,8 @@
       {/if}
       <div class="empty">
         <p>Prueba con algo como:</p>
-        <button type="button" class="suggestion" onclick={() => (input = 'Me comí unos tacos al pastor.')}>
-          "Me comí unos tacos al pastor."
+        <button type="button" class="suggestion" onclick={usarSugerencia}>
+          "Comí…"
         </button>
       </div>
     {/if}
@@ -660,6 +672,7 @@
     <input
       type="text"
       placeholder="¿Qué comiste?"
+      bind:this={inputEl}
       bind:value={input}
       onkeydown={onKeydown}
       onpaste={onPegarImagen}
