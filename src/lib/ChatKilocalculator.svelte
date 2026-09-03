@@ -127,6 +127,28 @@
     composerEl?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
 
+  // Burbujas de resultado, por índice del turno (bind:this en el #each).
+  let resultadoEls = $state<Record<number, HTMLDivElement | null>>({});
+
+  // Cuando la IA ya no pregunta más y entrega el cálculo, lo que importa ver
+  // son las kcal y el botón Guardar, no el campo de escritura: llevar la
+  // vista al composer dejaba el resultado arriba, fuera de pantalla, y
+  // parecía que la conversación seguía abierta. 'nearest' hace el mínimo
+  // scroll necesario, así que si la burbuja cabe se ve completa y si no,
+  // arranca desde arriba (platillo + kcal antes que el botón).
+  async function scrollAlResultado(i: number) {
+    await tick();
+    const el = resultadoEls[i];
+    if (!el) return;
+    // El composer es sticky al fondo del scroll, o sea que TAPA esa franja:
+    // sin reservarla, 'nearest' deja la burbuja pegada al borde inferior y el
+    // botón Guardar queda detrás del campo de escritura. Se mide en vivo
+    // porque el composer va en un renglón en desktop y en dos en mobile.
+    const alto = composerEl?.offsetHeight ?? 0;
+    el.style.scrollMarginBottom = `${alto + 12}px`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
   function elegirImagen() {
     fileInputEl?.click();
   }
@@ -282,7 +304,14 @@
             : String(e);
     } finally {
       loading = false;
-      void scrollAlFondo();
+      const ultimo = turns[turns.length - 1];
+      if (ultimo?.role === 'assistant' && !ultimo.respuesta.requiere_mas_informacion) {
+        void scrollAlResultado(turns.length - 1);
+      } else {
+        // Sigue preguntando (o hubo error): ahí sí toca ver el campo para
+        // contestar.
+        void scrollAlFondo();
+      }
     }
   }
 
@@ -518,7 +547,7 @@
         </div>
       {:else}
         {@const m = macros(turn.respuesta)}
-        <div class="bubble bot result">
+        <div class="bubble bot result" bind:this={resultadoEls[i]}>
           <span class="tag">Resultado</span>
           {#if turn.respuesta.platillo}
             <h2>{turn.respuesta.platillo}</h2>
