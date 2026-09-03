@@ -406,6 +406,15 @@
     }
   }
 
+  // Atajo del "+" junto al chevron en una tarjeta replegada: abre directo el
+  // panel de "agregar consumo" sin pasar por el paso intermedio de desplegar
+  // el acordeón primero. Solo se muestra colapsada, así que siempre entra al
+  // branch "expandir" de toggleExpand.
+  function agregarConsumoRapido(comidaId: number) {
+    toggleExpand(comidaId);
+    brincarAlChat(comidaId);
+  }
+
   function editarViaIA(comidaId: number, x: Consumo) {
     // Empezar a editar cancela una confirmación de borrado pendiente.
     confirmandoEliminar = null;
@@ -712,6 +721,28 @@
                 </svg>
               </button>
               {#if c.id !== expandedId}
+                {#if estaColapsada(c.id)}
+                  <button
+                    type="button"
+                    class="icon-btn card-agregar-rapido"
+                    onclick={() => agregarConsumoRapido(c.id)}
+                    aria-label="Agregar consumo a esta comida"
+                    title="Agregar consumo"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                {/if}
                 <button
                   type="button"
                   class="icon-btn card-chevron"
@@ -1078,6 +1109,13 @@
   }
 
   .card-borrar {
+    flex-shrink: 0;
+  }
+
+  /* Atajo junto al chevron, solo en tarjetas replegadas: agrega un consumo
+     directo sin tener que desplegar el acordeón primero para llegar al "+
+     Agregar consumo" de abajo. */
+  .card-agregar-rapido {
     flex-shrink: 0;
   }
 
