@@ -254,6 +254,15 @@
     })();
   });
 
+  // Reactivo (no una llamada suelta desde send()): en CUALQUIER momento que
+  // loading pase a true -- primer mensaje, uno de en medio, o el último antes
+  // del resultado final -- baja al fondo. Un call site manual corre el
+  // riesgo de que algún camino del código lo salte; esto no depende de que
+  // nadie se acuerde de invocarlo.
+  $effect(() => {
+    if (loading) scrollAlFondo();
+  });
+
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
   function macros(r: Respuesta): Macros | null {
@@ -286,7 +295,8 @@
     imagenBase64 = null;
     loading = true;
     error = null;
-    void scrollAlFondo();
+    // El scroll al fondo lo dispara el $effect que observa `loading` (ver
+    // arriba) -- no hace falta invocarlo aquí también.
 
     // El contexto (de edición, o de hermanos) se manda solo una vez (primer
     // mensaje); después el hilo de la conversación ya lo tiene.
