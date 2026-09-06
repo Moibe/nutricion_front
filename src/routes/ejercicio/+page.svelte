@@ -18,15 +18,18 @@
 
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
 
+  // Sin capitalizar (el día de la semana en es-MX sale en minúscula) --
+  // mismo formatoFechaLarga que ListadoComidas.svelte, para el título
+  // embebido en una frase ("Ejercicio del viernes, ..."). Para mostrarla
+  // SUELTA ("Hoy es: X") sí se capitaliza, aparte, más abajo.
   function formatoFechaLarga(fecha: string): string {
     const [y, m, d] = fecha.split('-').map(Number);
-    const raw = new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
-    return raw.charAt(0).toUpperCase() + raw.slice(1);
   }
 
   const fechaParam = $derived(page.url.searchParams.get('fecha'));
@@ -36,6 +39,16 @@
   const fechaObjetivo = $derived(fechaValida ?? hoyISO);
   const esHoy = $derived(fechaObjetivo === hoyISO);
   const fechaLargoObjetivo = $derived(formatoFechaLarga(fechaObjetivo));
+  // Capitalizada, para mostrarla SUELTA ("Hoy es: X") -- mismo patrón que
+  // hoyLargo en ListadoComidas.svelte.
+  const fechaLargoCapitalizada = $derived(
+    fechaLargoObjetivo.charAt(0).toUpperCase() + fechaLargoObjetivo.slice(1)
+  );
+
+  // Mismo patrón que el título de ListadoComidas.svelte ("Comidas de hoy" /
+  // "Comidas del [fecha]"): en un día pasado la fecha va en el título y no
+  // se repite abajo en una línea "Editando:" aparte.
+  const titulo = $derived(esHoy ? 'Ejercicio' : `Ejercicio del ${fechaLargoObjetivo}`);
 
   // Mismo navegador de días que /hoy (flechitas arriba a la izquierda) --
   // suma/resta en UTC puro (sin horas de por medio) para no depender de la
@@ -314,17 +327,17 @@
 </div>
 
 <section class="ejercicio-page">
-  <h1>Ejercicio</h1>
-  <div class="hoy-fila">
-    {#if esHoy}
-      <p class="hoy">Hoy es: <strong>{fechaLargoObjetivo}</strong></p>
-    {:else}
-      <p class="hoy">Editando: <strong>{fechaLargoObjetivo}</strong></p>
-    {/if}
-    {#if pesoDelDia != null}
-      <p class="peso-dia">Peso: <strong>{fmt(pesoDelDia)} kg</strong></p>
-    {/if}
-  </div>
+  <h1>{titulo}</h1>
+  {#if esHoy}
+    <div class="hoy-fila">
+      <p class="hoy">Hoy es: <strong>{fechaLargoCapitalizada}</strong></p>
+      {#if pesoDelDia != null}
+        <p class="peso-dia">Peso: <strong>{fmt(pesoDelDia)} kg</strong></p>
+      {/if}
+    </div>
+  {:else if pesoDelDia != null}
+    <p class="peso-dia">Peso: <strong>{fmt(pesoDelDia)} kg</strong></p>
+  {/if}
 
   {#if error}
     <div class="error">⚠️ {error}</div>
