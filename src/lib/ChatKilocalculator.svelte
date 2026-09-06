@@ -134,39 +134,34 @@
   let composerEl = $state<HTMLDivElement | null>(null);
   let inputEl = $state<HTMLInputElement | null>(null);
 
-  // Tras mandar un mensaje (o recibir la respuesta), llevar la vista hasta el
-  // fondo real de la página — si no, en una conversación larga el usuario se
-  // queda viendo donde estaba antes y tiene que scrollear a mano para ver lo
-  // nuevo. Se usa scrollTo al scrollHeight en vez de scrollIntoView(composerEl):
-  // el composer es sticky (pegado al fondo mientras se lee el historial hacia
-  // arriba), así que su propia posición visual no es un ancla confiable —
-  // scrollTo al máximo real del documento no depende de la geometría de
-  // ningún elemento en particular.
-  async function scrollAlFondo() {
-    await tick();
-    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-  }
+  // Burbujas del historial, por índice del turno (bind:this en el #each) --
+  // más la del spinner de "Calculando…", que vive fuera de `turns`.
+  let turnoEls = $state<Record<number, HTMLDivElement | null>>({});
+  let loadingEl = $state<HTMLDivElement | null>(null);
 
-  // Burbujas de resultado, por índice del turno (bind:this en el #each).
-  let resultadoEls = $state<Record<number, HTMLDivElement | null>>({});
-
-  // Cuando la IA ya no pregunta más y entrega el cálculo, lo que importa ver
-  // son las kcal y el botón Guardar, no el campo de escritura: llevar la
-  // vista al composer dejaba el resultado arriba, fuera de pantalla, y
-  // parecía que la conversación seguía abierta. 'nearest' hace el mínimo
-  // scroll necesario, así que si la burbuja cabe se ve completa y si no,
-  // arranca desde arriba (platillo + kcal antes que el botón).
-  async function scrollAlResultado(i: number) {
-    await tick();
-    const el = resultadoEls[i];
+  // Lleva la vista hasta el elemento indicado, SIN pasarse: 'nearest' hace el
+  // mínimo scroll necesario, y reservar la altura del composer (sticky, tapa
+  // esa franja) evita que la burbuja quede escondida detrás del campo de
+  // escritura. Se mide en vivo porque el composer va en un renglón en
+  // desktop y en dos en mobile.
+  function scrollHaciaElemento(el: HTMLDivElement | null | undefined) {
     if (!el) return;
-    // El composer es sticky al fondo del scroll, o sea que TAPA esa franja:
-    // sin reservarla, 'nearest' deja la burbuja pegada al borde inferior y el
-    // botón Guardar queda detrás del campo de escritura. Se mide en vivo
-    // porque el composer va en un renglón en desktop y en dos en mobile.
     const alto = composerEl?.offsetHeight ?? 0;
     el.style.scrollMarginBottom = `${alto + 12}px`;
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Lleva la vista a lo más nuevo de ESTA conversación: el spinner de
+  // "Calculando…" mientras está en pantalla, o si no el último turno (la
+  // pregunta de seguimiento recién llegada, o el mensaje recién mandado).
+  // A propósito NO se usa scrollTo(document.documentElement.scrollHeight):
+  // cuando ya hay otras comidas capturadas ese día, sus tarjetas siguen
+  // debajo de esta en el documento, así que "el fondo de la página" cae
+  // pasando de largo el spinner -- scrollIntoView sobre el elemento preciso
+  // no depende de cuánto más contenido haya después.
+  async function scrollAlFondo() {
+    await tick();
+    scrollHaciaElemento(loading ? loadingEl : turnoEls[turns.length - 1]);
   }
 
   function elegirImagen() {
@@ -341,14 +336,11 @@
             : String(e);
     } finally {
       loading = false;
-      const ultimo = turns[turns.length - 1];
-      if (ultimo?.role === 'assistant' && !ultimo.respuesta.requiere_mas_informacion) {
-        void scrollAlResultado(turns.length - 1);
-      } else {
-        // Sigue preguntando (o hubo error): ahí sí toca ver el campo para
-        // contestar.
-        void scrollAlFondo();
-      }
+      // scrollAlFondo ya resuelve solo a qué apuntar: con loading en false,
+      // cae al último turno -- la pregunta de seguimiento, el resultado
+      // final, o (si hubo error) el mensaje del usuario que quedó sin
+      // respuesta.
+      void scrollAlFondo();
     }
   }
 
@@ -602,20 +594,20 @@
 
     {#each turns as turn, i (i)}
       {#if turn.role === 'user'}
-        <div class="bubble user">
+        <div class="bubble user" bind:this={turnoEls[i]}>
           {#if turn.imagen}
             <img class="bubble-imagen" src={turn.imagen} alt="Foto del platillo enviada" />
           {/if}
           {#if turn.text}{turn.text}{/if}
         </div>
       {:else if turn.respuesta.requiere_mas_informacion}
-        <div class="bubble bot question">
+        <div class="bubble bot question" bind:this={turnoEls[i]}>
           <span class="tag">Pregunta</span>
           <p>{turn.respuesta.pregunta}</p>
         </div>
       {:else}
         {@const m = macros(turn.respuesta)}
-        <div class="bubble bot result" bind:this={resultadoEls[i]}>
+        <div class="bubble bot result" bind:this={turnoEls[i]}>
           <span class="tag">Resultado</span>
           {#if turn.respuesta.platillo}
             <h2>{turn.respuesta.platillo}</h2>
@@ -675,7 +667,7 @@
     {/each}
 
     {#if loading}
-      <div class="bubble bot loading">
+      <div class="bubble bot loading" bind:this={loadingEl}>
         <span class="spinner" aria-hidden="true"></span>
         Calculando… (puede tardar 2–8 s)
       </div>
