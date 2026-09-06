@@ -47,8 +47,12 @@
     comidaId?: number | null;
     mostrarTitulo?: boolean;
     // Se llama tras un guardado exitoso — el padre lo usa (p.ej. en
-    // /hoy) para cerrar el panel y mostrar el resultado en la tarjeta.
-    onGuardado?: (resultado: ResultadoGuardado) => void;
+    // /hoy) para mostrar el resultado en la tarjeta, y por default también
+    // para cerrar el panel. mantenerAbierto=true (solo lo manda
+    // usarFavorito) le pide NO cerrarlo: agregar un frecuente es una acción
+    // rápida que se espera repetir varias veces seguidas (2 cafés, etc.),
+    // así que replegar la tarjeta en cada una sería un paso extra de más.
+    onGuardado?: (resultado: ResultadoGuardado, opciones?: { mantenerAbierto?: boolean }) => void;
     // Para reabrir la conversación de un consumo ya guardado en vez de
     // empezar una nueva.
     preConversationId?: string | null;
@@ -435,15 +439,18 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { id: number };
-      onGuardado?.({
-        id: data.id,
-        conversation_id: cid,
-        platillo: fav.nombre,
-        kilocalorias: fav.kilocalorias ?? 0,
-        proteinas: fav.proteinas ?? 0,
-        carbohidratos: fav.carbohidratos ?? 0,
-        grasas: fav.grasas ?? 0
-      });
+      onGuardado?.(
+        {
+          id: data.id,
+          conversation_id: cid,
+          platillo: fav.nombre,
+          kilocalorias: fav.kilocalorias ?? 0,
+          proteinas: fav.proteinas ?? 0,
+          carbohidratos: fav.carbohidratos ?? 0,
+          grasas: fav.grasas ?? 0
+        },
+        { mantenerAbierto: true }
+      );
     } catch (e) {
       saveError =
         e instanceof TypeError
