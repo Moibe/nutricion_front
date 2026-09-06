@@ -543,6 +543,16 @@
             onclick={() => (favoritosAbiertos = !favoritosAbiertos)}
             aria-expanded={favoritosAbiertos}
           >
+            <svg
+              class="favoritos-estrella"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M12 3.5l2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9Z" />
+            </svg>
             Tus frecuentes:
             <svg
               class="favoritos-chevron"
