@@ -231,6 +231,16 @@
   const filaQuemadasDia = $derived(metricaDelDia('calorias_quemadas'));
   const filaPesoDia = $derived(metricaDelDia('peso'));
 
+  // Kcal basales del día (Mifflin-St Jeor), para el chip de "% del basal"
+  // junto al total -- misma fórmula que /registro-diario. null si falta
+  // perfil o el peso de ESE día (no hay con qué calcular).
+  const kcalBasalDia = $derived.by(() => {
+    if (!perfil || !diaActual || filaPesoDia == null) return null;
+    const edad = calcularEdad(perfil.fecha_nacimiento, diaActual);
+    const base = 10 * filaPesoDia.valor + 6.25 * perfil.estatura_cm - 5 * edad;
+    return perfil.sexo === 'hombre' ? base + 5 : base - 161;
+  });
+
   // "kcal quemadas" del día = Atajo de iOS (metricas-ios) + bitácora manual
   // (ejercicios) sumadas. hayQuemadasDia distingue "0 kcal capturadas" de
   // "nada capturado" para no mostrar el chip cuando no hay ningún dato.
@@ -560,6 +570,33 @@
       }
     })();
   });
+
+  // Perfil (fecha de nacimiento/estatura/sexo), para el chip de "% del
+  // basal" del Total del día -- mismo fetch y fórmula (Mifflin-St Jeor) que
+  // /registro-diario. Singleton, no depende del día en pantalla.
+  type Perfil = { fecha_nacimiento: string; estatura_cm: number; sexo: 'hombre' | 'mujer' };
+  let perfil = $state<Perfil | null>(null);
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/perfil`);
+        perfil = res.ok ? ((await res.json()) as Perfil | null) : null;
+      } catch {
+        // Best-effort: si falla, simplemente no se muestra el chip de % basal.
+      }
+    })();
+  });
+
+  // Edad AL DÍA en turno (no la de hoy) -- misma que calcularEdad en
+  // /registro-diario.
+  function calcularEdad(fechaNacimiento: string, enFecha: string): number {
+    const [an, mn, dn] = fechaNacimiento.split('-').map(Number);
+    const [af, mf, df] = enFecha.split('-').map(Number);
+    let edad = af - an;
+    if (mf < mn || (mf === mn && df < dn)) edad--;
+    return edad;
+  }
 </script>
 
 {#snippet botonesCrear()}
@@ -678,6 +715,9 @@
       <span class="total-dia-label">Total del día</span>
       <div class="total-dia-scroll">
         <span class="total-big kcal">{fmt(totalDia.kcal)} kcal</span>
+        {#if kcalBasalDia != null && kcalBasalDia > 0}
+          <span class="total-big basal">{fmt((totalDia.kcal / kcalBasalDia) * 100)}% del basal</span>
+        {/if}
         <span class="total-big macro">{@render icoProt()}{fmt(totalDia.prot)} g prot</span>
         <span class="total-big macro">{@render icoCarb()}{fmt(totalDia.carb)} g carb</span>
         <span class="total-big macro">{@render icoGrasa()}{fmt(totalDia.grasa)} g grasa</span>
@@ -1363,6 +1403,14 @@
     color: #166534;
     background: rgba(22, 163, 74, 0.14);
     border-color: rgba(22, 163, 74, 0.35);
+  }
+
+  /* % del basal: morado, neutral (ni "bien" ni "mal" como quemadas/neto) --
+     solo informa cuánto de tu metabolismo basal llevas consumido hoy. */
+  .total-big.basal {
+    color: #6d28d9;
+    background: rgba(124, 58, 237, 0.12);
+    border-color: rgba(124, 58, 237, 0.3);
   }
 
   .consumos {
