@@ -12,6 +12,7 @@
   // directo desde el resumen de /calendario.
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
+  import ChatEjercicio from '$lib/ChatEjercicio.svelte';
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
@@ -36,7 +37,15 @@
   const esHoy = $derived(fechaObjetivo === hoyISO);
   const fechaLargoObjetivo = $derived(formatoFechaLarga(fechaObjetivo));
 
-  type Entrada = { id: number; fecha: string; concepto: string; kilocalorias: number; created_at: string };
+  type Entrada = {
+    id: number;
+    fecha: string;
+    concepto: string;
+    kilocalorias: number;
+    created_at: string;
+    conversation_id?: string | null;
+  };
+  type ResultadoGuardado = { id: number; conversation_id: string; concepto: string | null; kilocalorias: number };
 
   let entradas = $state<Entrada[]>([]);
   let cargando = $state(true);
@@ -50,12 +59,33 @@
   let confirmandoEliminar = $state<number | null>(null);
   let eliminandoId = $state<number | null>(null);
 
+  // Chat de IA: modo "agregar nuevo" (chatAbierto) o "editar" una entrada ya
+  // guardada (editandoEntrada, solo posible si tiene conversation_id -- las
+  // de la captura manual de siempre nunca la tienen, así que no son
+  // reabribles). Mutuamente excluyentes, igual que expandedId/editandoConsumo
+  // en ListadoComidas.svelte.
+  let chatAbierto = $state(false);
+  let editandoEntrada = $state<Entrada | null>(null);
+
+  let guardandoFavoritoId = $state<number | null>(null);
+  let favoritoGuardadoIds = $state<Set<number>>(new Set());
+
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
   const entradasDelDia = $derived(
     entradas.filter((e) => e.fecha === fechaObjetivo).slice().sort((a, b) => a.id - b.id)
   );
   const totalDia = $derived(entradasDelDia.reduce((acc, e) => acc + e.kilocalorias, 0));
+
+  // Resumen MUY recortado (solo nombres) de lo que ya se guardó ESE MISMO DÍA,
+  // para que al agregar un ejercicio nuevo el usuario pueda aludir a uno
+  // anterior sin repetir la descripción completa. Mismo patrón que
+  // resumenHermanos en ListadoComidas.svelte (ahí es por comida; acá, por
+  // día, que es la unidad de agrupación de ejercicio). Los últimos 10 bastan.
+  const contextoHermanos = $derived.by(() => {
+    const nombres = entradasDelDia.slice(-10).map((e) => `- ${e.concepto}`);
+    return nombres.length > 0 ? nombres.join('\n') : null;
+  });
 
   function extraerError(detalle: unknown, fallback: string): string {
     const d = (detalle as { detail?: unknown } | null)?.detail;
@@ -145,6 +175,63 @@
       eliminandoId = null;
     }
   }
+
+  function alternarChat() {
+    editandoEntrada = null;
+    chatAbierto = !chatAbierto;
+  }
+
+  // Reabrir la conversación de una entrada ya guardada por el chat (tiene
+  // conversation_id) para seguir editándola -- mismo mecanismo que
+  // editarViaIA en ListadoComidas.svelte.
+  function editarViaIA(e: Entrada) {
+    if (editandoEntrada?.id === e.id) {
+      editandoEntrada = null;
+      return;
+    }
+    chatAbierto = false;
+    editandoEntrada = e;
+  }
+
+  // Al guardar desde el chat (agregar nuevo O reabrir uno existente): si el
+  // id ya estaba en la lista, lo reemplaza (fue una edición); si no, lo
+  // agrega. Mismo patrón que onConsumoGuardado en ListadoComidas.svelte.
+  function onGuardadoChat(resultado: ResultadoGuardado, opciones?: { mantenerAbierto?: boolean }) {
+    const actualizado: Entrada = {
+      id: resultado.id,
+      fecha: fechaObjetivo,
+      concepto: resultado.concepto ?? '',
+      kilocalorias: resultado.kilocalorias,
+      created_at: entradas.find((e) => e.id === resultado.id)?.created_at ?? new Date().toISOString(),
+      conversation_id: resultado.conversation_id
+    };
+    const existe = entradas.some((e) => e.id === resultado.id);
+    entradas = existe ? entradas.map((e) => (e.id === resultado.id ? actualizado : e)) : [...entradas, actualizado];
+    if (opciones?.mantenerAbierto) return;
+    chatAbierto = false;
+    editandoEntrada = null;
+  }
+
+  // Guardar como frecuente una entrada YA guardada (sin pasar por el chat) --
+  // mismo botón/idea que guardarConsumoComoFavorito en ListadoComidas.svelte.
+  async function guardarEntradaComoFavorito(e: Entrada) {
+    if (guardandoFavoritoId !== null || favoritoGuardadoIds.has(e.id)) return;
+    guardandoFavoritoId = e.id;
+    errorAccion = null;
+    try {
+      const res = await fetch(`${API_URL}/favoritos-ejercicio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: e.concepto, kilocalorias: e.kilocalorias })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      favoritoGuardadoIds = new Set(favoritoGuardadoIds).add(e.id);
+    } catch {
+      errorAccion = 'No se pudo guardar como frecuente.';
+    } finally {
+      guardandoFavoritoId = null;
+    }
+  }
 </script>
 
 <section class="ejercicio-page">
@@ -199,6 +286,16 @@
       </div>
     </div>
 
+    <button type="button" class="toggle-hint" onclick={alternarChat}>
+      {chatAbierto ? '− Cerrar' : '+ Preguntarle a la IA'}
+    </button>
+
+    {#if chatAbierto}
+      <div class="chat-panel">
+        <ChatEjercicio fecha={fechaObjetivo} mostrarTitulo={false} {contextoHermanos} onGuardado={onGuardadoChat} />
+      </div>
+    {/if}
+
     {#if entradasDelDia.length > 0}
       <div class="total-dia">
         <span class="total-dia-label">Total del día</span>
@@ -212,6 +309,51 @@
               <span class="entrada-concepto">{e.concepto}</span>
               <div class="entrada-acciones">
                 <span class="entrada-kcal">{fmt(e.kilocalorias)} kcal</span>
+                <button
+                  type="button"
+                  class="icon-btn fav-entrada-btn"
+                  class:activo={favoritoGuardadoIds.has(e.id)}
+                  onclick={() => guardarEntradaComoFavorito(e)}
+                  disabled={guardandoFavoritoId !== null || favoritoGuardadoIds.has(e.id)}
+                  aria-label={favoritoGuardadoIds.has(e.id) ? 'Ya guardado como frecuente' : 'Guardar como frecuente'}
+                  title={favoritoGuardadoIds.has(e.id) ? 'Ya guardado como frecuente' : 'Guardar como frecuente'}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill={favoritoGuardadoIds.has(e.id) ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 3.5l2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9Z" />
+                  </svg>
+                </button>
+                {#if e.conversation_id}
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    class:activo={editandoEntrada?.id === e.id}
+                    onclick={() => editarViaIA(e)}
+                    aria-label="Editar con el asistente"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+                {/if}
                 <button
                   type="button"
                   class="icon-btn"
@@ -234,6 +376,18 @@
                 </button>
               </div>
             </div>
+
+            {#if editandoEntrada?.id === e.id}
+              <div class="chat-panel">
+                <ChatEjercicio
+                  fecha={fechaObjetivo}
+                  mostrarTitulo={false}
+                  preConversationId={e.conversation_id}
+                  preResultado={{ concepto: e.concepto, kilocalorias: e.kilocalorias }}
+                  onGuardado={onGuardadoChat}
+                />
+              </div>
+            {/if}
             {#if confirmandoEliminar === e.id}
               <div class="confirmar-eliminar">
                 <span>¿Eliminar esta entrada?</span>
@@ -497,14 +651,55 @@
   .icon-btn {
     background: none;
     border: none;
+    border-radius: 6px;
     padding: 0.15rem;
     color: rgba(15, 15, 15, 0.4);
     cursor: pointer;
     display: inline-flex;
+    transition: background 0.15s ease, color 0.15s ease;
   }
 
-  .icon-btn:hover {
+  .icon-btn:hover:not(:disabled) {
+    background: rgba(15, 15, 15, 0.08);
     color: var(--ink);
+  }
+
+  .icon-btn:disabled {
+    cursor: not-allowed;
+  }
+
+  .icon-btn.activo {
+    color: #15803d;
+  }
+
+  .fav-entrada-btn.activo {
+    color: #15803d;
+  }
+
+  /* Mismo patrón que "+ Agregar consumo"/"− Cerrar" en ListadoComidas.svelte
+     -- abre/cierra el panel del chat de IA sin ser el CTA principal. */
+  .toggle-hint {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .toggle-hint:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+
+  .chat-panel {
+    padding: 1rem;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid var(--line);
   }
 
   .confirmar-eliminar {
