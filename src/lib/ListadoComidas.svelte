@@ -787,6 +787,27 @@
                   </svg>
                 </button>
               {/if}
+              {#if c.id === expandedId && !editandoConsumo}
+                <button
+                  type="button"
+                  class="icon-btn card-chevron card-chevron-cerrar"
+                  onclick={() => toggleExpand(c.id)}
+                  aria-label="Cerrar esta comida"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              {/if}
             </div>
           </div>
 
@@ -941,9 +962,11 @@
             {/each}
           </div>
 
-          <button type="button" class="toggle-hint" onclick={() => toggleExpand(c.id)}>
-            {c.id === expandedId && !editandoConsumo ? '− Cerrar' : '+ Agregar consumo'}
-          </button>
+          {#if !(c.id === expandedId && !editandoConsumo)}
+            <button type="button" class="toggle-hint" onclick={() => toggleExpand(c.id)}>
+              + Agregar consumo
+            </button>
+          {/if}
 
           {#if c.id === expandedId && !editandoConsumo}
             <div class="consumo-panel">
