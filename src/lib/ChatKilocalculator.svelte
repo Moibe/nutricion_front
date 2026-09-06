@@ -42,7 +42,8 @@
     mostrarTitulo = true,
     onGuardado,
     preConversationId = null,
-    preResultado = null
+    preResultado = null,
+    contextoHermanos = null
   }: {
     comidaId?: number | null;
     mostrarTitulo?: boolean;
@@ -57,6 +58,11 @@
     // empezar una nueva.
     preConversationId?: string | null;
     preResultado?: PreResultado | null;
+    // Resumen recortado (solo nombres) de los OTROS consumos ya guardados en
+    // esta misma comida — para una conversación NUEVA (no edición), así el
+    // usuario puede aludir a uno anterior ("del tamaño de las gotitas de
+    // chocolate") sin repetir la descripción completa.
+    contextoHermanos?: string | null;
   } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
@@ -113,6 +119,10 @@
   );
   // Contexto a mandar SOLO en el primer mensaje de edición (luego el hilo ya lo tiene).
   let contextoEdicion = $state<string | null>(preResultado ? resumenConsumo(preResultado) : null);
+  // Idem para contextoHermanos, pero de una conversación NUEVA -- no aplica
+  // si esto es una edición (preResultado ya trae lo suyo, y son mutuamente
+  // excluyentes: no se edita un consumo aludiendo a sus propios hermanos).
+  let contextoHermanosPendiente = $state<string | null>(preResultado ? null : contextoHermanos);
   let input = $state('');
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -285,10 +295,12 @@
     error = null;
     void scrollAlFondo();
 
-    // El contexto de edición se manda solo una vez (primer mensaje); después
-    // el hilo de la conversación ya lo tiene.
+    // El contexto (de edición, o de hermanos) se manda solo una vez (primer
+    // mensaje); después el hilo de la conversación ya lo tiene.
     const contexto = contextoEdicion;
     contextoEdicion = null;
+    const contextoHermanosAMandar = contextoHermanosPendiente;
+    contextoHermanosPendiente = null;
 
     try {
       const res = await fetch(`${API_URL}/chat`, {
@@ -298,6 +310,7 @@
           mensaje,
           conversation_id: conversationId,
           contexto,
+          contexto_hermanos: contextoHermanosAMandar,
           imagen_base64: imagen
         })
       });
