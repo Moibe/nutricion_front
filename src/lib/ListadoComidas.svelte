@@ -484,7 +484,15 @@
   // si el id ya estaba en la lista, lo reemplaza (fue una edición); si no,
   // lo agrega. El conversation_id se conserva del original para poder
   // reabrirlo de nuevo después.
-  function onConsumoGuardado(comidaId: number, resultado: Omit<Consumo, 'conversation_id'>) {
+  // mantenerAbierto (lo manda usarFavorito, vía ChatKilocalculator): agregar
+  // un frecuente es una acción rápida que se espera repetir varias veces
+  // seguidas (2 cafés, etc.) -- replegar la tarjeta en cada una obligaría a
+  // reabrirla a mano para la siguiente, así que en ese caso NO se cierra.
+  function onConsumoGuardado(
+    comidaId: number,
+    resultado: Omit<Consumo, 'conversation_id'>,
+    opciones?: { mantenerAbierto?: boolean }
+  ) {
     comidas = comidas.map((c) => {
       if (c.id !== comidaId) return c;
       const existente = c.consumos.find((x) => x.id === resultado.id);
@@ -497,6 +505,7 @@
         : [...c.consumos, actualizado];
       return { ...c, consumos };
     });
+    if (opciones?.mantenerAbierto) return;
     expandedId = null;
     editandoConsumo = null;
   }
@@ -910,7 +919,7 @@
                       mostrarTitulo={false}
                       preConversationId={x.conversation_id}
                       preResultado={x}
-                      onGuardado={(r) => onConsumoGuardado(c.id, r)}
+                      onGuardado={(r, opciones) => onConsumoGuardado(c.id, r, opciones)}
                     />
                   </div>
                 {/if}
@@ -927,7 +936,7 @@
               <ChatKilocalculator
                 comidaId={c.id}
                 mostrarTitulo={false}
-                onGuardado={(r) => onConsumoGuardado(c.id, r)}
+                onGuardado={(r, opciones) => onConsumoGuardado(c.id, r, opciones)}
               />
             </div>
           {/if}
