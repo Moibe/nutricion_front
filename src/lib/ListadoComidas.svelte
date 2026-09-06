@@ -716,7 +716,9 @@
       <div class="total-dia-scroll">
         <span class="total-big kcal">{fmt(totalDia.kcal)} kcal</span>
         {#if kcalBasalDia != null && kcalBasalDia > 0}
-          <span class="total-big basal">{fmt((totalDia.kcal / kcalBasalDia) * 100)}% del basal</span>
+          <span class="total-big basal" title="Porcentaje del metabolismo basal del día ({fmt(kcalBasalDia)} kcal)">
+            {fmt((totalDia.kcal / kcalBasalDia) * 100)}% basal
+          </span>
         {/if}
         <span class="total-big macro">{@render icoProt()}{fmt(totalDia.prot)} g prot</span>
         <span class="total-big macro">{@render icoCarb()}{fmt(totalDia.carb)} g carb</span>
@@ -1275,17 +1277,31 @@
     color: var(--ink);
   }
 
-  /* A diferencia de .card-head-scroll (que sí se desliza — ahí cabe MUCHO
-     más contenido variable), aquí se prefiere que los chips bajen a una
-     siguiente línea en vez de recortarse o esconderse detrás de un scroll
-     que no se nota que existe. */
+  /* Todos los chips en UN solo renglón. Antes bajaban a una segunda línea
+     (flex-wrap: wrap), pero con el chip de % del basal la fila se partía en
+     dos y se veía desbalanceada. Ahora no se parte nunca: si no cabe (móvil
+     angosto, o el día trae también quemadas/neto), se desliza igual que
+     .card-head-scroll en vez de saltar de línea. */
   .total-dia-scroll {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     min-width: 0;
     flex: 1;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .total-dia-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Los chips no se encogen: preferimos deslizar la fila a que el texto de
+     un chip se parta en dos renglones. */
+  .total-dia-scroll > .total-big {
+    flex-shrink: 0;
   }
 
   .card-sub {
@@ -1406,11 +1422,15 @@
   }
 
   /* % del basal: morado, neutral (ni "bien" ni "mal" como quemadas/neto) --
-     solo informa cuánto de tu metabolismo basal llevas consumido hoy. */
+     solo informa cuánto de tu metabolismo basal llevas consumido hoy. Del
+     tamaño de los chips de macros (no del de kcal): es dato de apoyo, y así
+     la fila completa cabe en un solo renglón. */
   .total-big.basal {
     color: #6d28d9;
     background: rgba(124, 58, 237, 0.12);
     border-color: rgba(124, 58, 237, 0.3);
+    font-size: 0.85rem;
+    padding: 0.25rem 0.55rem;
   }
 
   .consumos {
