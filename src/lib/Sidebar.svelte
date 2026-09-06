@@ -127,7 +127,7 @@
       <circle cx="12" cy="13" r="4" />
       <path d="M12 13l1.8-1.8" />
     </svg>
-    <span>Peso Hoy</span>
+    <span>Peso</span>
   </a>
   <a href="/hoy" class="nav-item" aria-current={isActive('/hoy') ? 'page' : undefined}>
     <svg
@@ -143,7 +143,7 @@
       <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="4" />
     </svg>
-    <span>Alimentación Hoy</span>
+    <span>Alimentación</span>
   </a>
   <a href="/ejercicio" class="nav-item" aria-current={isActive('/ejercicio') ? 'page' : undefined}>
     <svg
@@ -158,7 +158,7 @@
     >
       <path d="M3 12h4l2-7 4 14 2-7h6" />
     </svg>
-    <span>Ejercicio Hoy</span>
+    <span>Ejercicio</span>
   </a>
   {#if usuario?.id === 1}
     <a href="/admin" class="nav-item" aria-current={isActive('/admin') ? 'page' : undefined}>
