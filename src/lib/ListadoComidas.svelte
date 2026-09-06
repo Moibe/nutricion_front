@@ -382,6 +382,19 @@
     return c.consumos.reduce((acc, x) => acc + (x[campo] ?? 0), 0);
   }
 
+  // Resumen MUY recortado (solo el nombre, sin macros) de lo que ya se
+  // guardó en esta misma comida, para que al agregar un consumo nuevo el
+  // usuario pueda aludir a uno anterior ("del tamaño de las gotitas de
+  // chocolate") sin repetir la descripción completa. Los últimos 10 bastan
+  // — no tiene caso arrastrar una comida con decenas de consumos.
+  function resumenHermanos(c: Comida): string | null {
+    const nombres = c.consumos
+      .filter((x) => x.platillo)
+      .slice(-10)
+      .map((x) => `- ${x.platillo}`);
+    return nombres.length > 0 ? nombres.join('\n') : null;
+  }
+
   function toggleExpand(id: number) {
     if (expandedId === id && !editandoConsumo) {
       expandedId = null;
@@ -937,6 +950,7 @@
               <ChatKilocalculator
                 comidaId={c.id}
                 mostrarTitulo={false}
+                contextoHermanos={resumenHermanos(c)}
                 onGuardado={(r, opciones) => onConsumoGuardado(c.id, r, opciones)}
               />
             </div>
