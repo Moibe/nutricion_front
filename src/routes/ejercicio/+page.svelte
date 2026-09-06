@@ -115,6 +115,28 @@
     })();
   });
 
+  // Peso corporal más reciente (de /metricas-ios, capturado a mano en /peso o
+  // por el Atajo de iOS) -- se le pasa al chat de IA como contexto para que
+  // no lo tenga que preguntar cada vez que sea relevante para el cálculo.
+  // Sin filtro de fecha: se quiere el ÚLTIMO conocido, no necesariamente el
+  // de hoy (listar_metricas_ios ya viene ordenado fecha DESC).
+  let pesoKg = $state<number | null>(null);
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/metricas-ios`);
+        if (res.ok) {
+          const datos = (await res.json()) as { fecha: string; tipo: string; valor: number }[];
+          const masReciente = datos.find((m) => m.tipo === 'peso');
+          if (masReciente) pesoKg = masReciente.valor;
+        }
+      } catch {
+        // Best-effort: si falla, el chat simplemente no trae ese contexto.
+      }
+    })();
+  });
+
   async function guardar() {
     if (!concepto.trim()) {
       errorAccion = 'Describe brevemente el ejercicio (ej. "Correr 5km").';
@@ -292,7 +314,7 @@
 
     {#if chatAbierto}
       <div class="chat-panel">
-        <ChatEjercicio fecha={fechaObjetivo} mostrarTitulo={false} {contextoHermanos} onGuardado={onGuardadoChat} />
+        <ChatEjercicio fecha={fechaObjetivo} mostrarTitulo={false} {contextoHermanos} {pesoKg} onGuardado={onGuardadoChat} />
       </div>
     {/if}
 
@@ -384,6 +406,7 @@
                   mostrarTitulo={false}
                   preConversationId={e.conversation_id}
                   preResultado={{ concepto: e.concepto, kilocalorias: e.kilocalorias }}
+                  {pesoKg}
                   onGuardado={onGuardadoChat}
                 />
               </div>

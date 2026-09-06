@@ -30,7 +30,8 @@
     onGuardado,
     preConversationId = null,
     preResultado = null,
-    contextoHermanos = null
+    contextoHermanos = null,
+    pesoKg = null
   }: {
     // A diferencia de comidaId (nullable) en ChatKilocalculator: ejercicio no
     // tiene una fila "padre" que ya traiga la fecha, así que este chat
@@ -51,6 +52,10 @@
     // ESE MISMO DÍA — para una conversación NUEVA (no edición), así el
     // usuario puede aludir a uno anterior sin repetir la descripción completa.
     contextoHermanos?: string | null;
+    // Peso corporal más reciente (de /metricas-ios) — se manda como contexto
+    // en el primer turno para que el asistente no lo tenga que preguntar.
+    // A diferencia de contextoHermanos, SÍ aplica también al editar.
+    pesoKg?: number | null;
   } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
@@ -99,6 +104,9 @@
   // si esto es una edición (preResultado ya trae lo suyo, y son mutuamente
   // excluyentes: no se edita un ejercicio aludiendo a sus propios hermanos).
   let contextoHermanosPendiente = $state<string | null>(preResultado ? null : contextoHermanos);
+  // A diferencia de contextoHermanos, este SÍ aplica también al editar --
+  // el peso corporal es relevante para el cálculo sin importar el modo.
+  let pesoKgPendiente = $state<number | null>(pesoKg);
   let input = $state('');
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -247,6 +255,8 @@
     contextoEdicion = null;
     const contextoHermanosAMandar = contextoHermanosPendiente;
     contextoHermanosPendiente = null;
+    const pesoKgAMandar = pesoKgPendiente;
+    pesoKgPendiente = null;
 
     try {
       const res = await fetch(`${API_URL}/chat-ejercicio`, {
@@ -257,6 +267,7 @@
           conversation_id: conversationId,
           contexto,
           contexto_hermanos: contextoHermanosAMandar,
+          peso_kg: pesoKgAMandar,
           imagen_base64: imagen
         })
       });
