@@ -242,23 +242,19 @@
   const hayQuemadasDia = $derived(filaQuemadasDia !== undefined || kcalQuemadasManualDia > 0);
   const kcalQuemadasDia = $derived((filaQuemadasDia?.valor ?? 0) + kcalQuemadasManualDia);
 
-  // Título del encabezado: contextual al día elegido cuando viene de /calendario.
-  const titulo = $derived(
-    fechaFiltro
-      ? `Comidas del ${formatoFechaLarga(fechaFiltro)}`
-      : soloHoy
-        ? 'Comidas de hoy'
-        : 'Comidas guardadas'
-  );
+  // Título del encabezado: la fecha ya no se embebe aquí (va en la línea
+  // "Editando: X" de abajo, junto al peso) -- mismo patrón que Ejercicio.
+  const titulo = $derived(soloHoy ? 'Comidas de hoy' : 'Comidas guardadas');
 
   function formatoFechaLarga(fecha: string) {
     const [y, m, d] = fecha.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+    const raw = new Date(y, m - 1, d).toLocaleDateString('es-MX', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
   }
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
@@ -662,9 +658,13 @@
     <!-- Los botones para crear comidas están SIEMPRE (no solo cuando el día
          está vacío), para poder agregar una 2ª/3ª comida al mismo día — tanto
          en /hoy como en /calendario (ahí crean en fechaFiltro, no en hoy). -->
-    {#if soloHoy}
+    {#if soloHoy || fechaFiltro}
       <div class="hoy-fila">
-        <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+        {#if soloHoy}
+          <p class="hoy">Hoy es: <strong>{hoyLargo}</strong></p>
+        {:else if fechaFiltro}
+          <p class="hoy">Editando: <strong>{formatoFechaLarga(fechaFiltro)}</strong></p>
+        {/if}
         {#if filaPesoDia}
           <p class="peso-dia">Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong></p>
         {/if}
@@ -687,10 +687,6 @@
         {/if}
       </div>
     </div>
-  {/if}
-
-  {#if fechaFiltro && !cargando && !error && filaPesoDia}
-    <p class="peso-dia">Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong></p>
   {/if}
 
   {#if cargando}
