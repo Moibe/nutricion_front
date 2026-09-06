@@ -134,27 +134,33 @@
     })();
   });
 
-  // Peso corporal más reciente (de /metricas-ios, capturado a mano en /peso o
-  // por el Atajo de iOS) -- se le pasa al chat de IA como contexto para que
-  // no lo tenga que preguntar cada vez que sea relevante para el cálculo.
-  // Sin filtro de fecha: se quiere el ÚLTIMO conocido, no necesariamente el
-  // de hoy (listar_metricas_ios ya viene ordenado fecha DESC).
-  let pesoKg = $state<number | null>(null);
+  // Métricas de iOS (Atajo → Salud): peso, capturado a mano en /peso o por el
+  // Atajo. Best-effort y separado de `entradas`: si este fetch falla,
+  // simplemente no se muestra/manda como contexto, sin tumbar el resto de
+  // la página -- mismo patrón que ListadoComidas.svelte.
+  type MetricaIos = { fecha: string; tipo: string; valor: number };
+  let metricasIos = $state<MetricaIos[]>([]);
 
   $effect(() => {
     (async () => {
       try {
         const res = await fetch(`${API_URL}/metricas-ios`);
-        if (res.ok) {
-          const datos = (await res.json()) as { fecha: string; tipo: string; valor: number }[];
-          const masReciente = datos.find((m) => m.tipo === 'peso');
-          if (masReciente) pesoKg = masReciente.valor;
-        }
+        if (res.ok) metricasIos = (await res.json()) as MetricaIos[];
       } catch {
-        // Best-effort: si falla, el chat simplemente no trae ese contexto.
+        // Best-effort: si falla, simplemente no se muestra/manda como contexto.
       }
     })();
   });
+
+  // Peso capturado ESE DÍA específicamente -- para mostrarlo en el
+  // encabezado, igual que "Peso: X kg" en Alimentación Hoy.
+  const pesoDelDia = $derived(metricasIos.find((m) => m.fecha === fechaObjetivo && m.tipo === 'peso')?.valor ?? null);
+
+  // Peso más reciente CONOCIDO (no necesariamente el de este día) -- se le
+  // pasa al chat de IA como contexto para que no lo tenga que preguntar cada
+  // vez que sea relevante para el cálculo. listar_metricas_ios ya viene
+  // ordenado fecha DESC, así que el primer match ya es el más nuevo.
+  const pesoKg = $derived(metricasIos.find((m) => m.tipo === 'peso')?.valor ?? null);
 
   async function guardar() {
     if (!concepto.trim()) {
@@ -309,11 +315,16 @@
 
 <section class="ejercicio-page">
   <h1>Ejercicio</h1>
-  {#if esHoy}
-    <p class="hoy">Hoy es: <strong>{fechaLargoObjetivo}</strong></p>
-  {:else}
-    <p class="hoy">Editando: <strong>{fechaLargoObjetivo}</strong></p>
-  {/if}
+  <div class="hoy-fila">
+    {#if esHoy}
+      <p class="hoy">Hoy es: <strong>{fechaLargoObjetivo}</strong></p>
+    {:else}
+      <p class="hoy">Editando: <strong>{fechaLargoObjetivo}</strong></p>
+    {/if}
+    {#if pesoDelDia != null}
+      <p class="peso-dia">Peso: <strong>{fmt(pesoDelDia)} kg</strong></p>
+    {/if}
+  </div>
 
   {#if error}
     <div class="error">⚠️ {error}</div>
@@ -546,6 +557,14 @@
     color: var(--ink);
   }
 
+  .hoy-fila {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+  }
+
   .hoy {
     margin: 0;
     font-size: 0.95rem;
@@ -553,6 +572,16 @@
   }
 
   .hoy strong {
+    color: var(--ink);
+  }
+
+  .peso-dia {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+  }
+
+  .peso-dia strong {
     color: var(--ink);
   }
 
