@@ -115,14 +115,15 @@
   // para poder brincar a la que se acaba de activar.
   let cardEls = $state<Record<number, HTMLDivElement | null>>({});
 
-  // En mobile los botones de tipo viven arriba del fold y el chat aparece
-  // abajo, fuera de pantalla: activar una comida se sentía como que el tap no
-  // hizo nada y había que scrollear a ciegas a buscarlo. En desktop no aplica
-  // — ahí botones y chat caben juntos, y un scroll automático sería un salto
-  // gratuito.
+  // Los botones de tipo viven arriba del fold y el chat aparece más abajo,
+  // fuera de pantalla: activar una comida se sentía como que el tap no hizo
+  // nada y había que scrollear a ciegas a buscarlo. Antes esto solo corría en
+  // mobile (se asumía que en desktop botones y chat cabían juntos), pero con
+  // varias comidas ya capturadas la tarjeta también queda fuera de vista en
+  // desktop -- así que ahora siempre brinca, sin importar el ancho; si ya
+  // está a la vista, scrollIntoView no mueve nada.
   async function brincarAlChat(comidaId: number) {
     if (typeof window === 'undefined') return;
-    if (!window.matchMedia('(max-width: 768px)').matches) return;
     // El panel del chat se monta en el render que dispara este cambio de
     // estado, así que sin tick() la tarjeta todavía mide lo que medía
     // replegada y el scroll queda corto.
