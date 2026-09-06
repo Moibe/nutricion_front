@@ -52,7 +52,9 @@
   let error = $state<string | null>(null);
   let errorAccion = $state<string | null>(null);
 
-  let concepto = $state('');
+  // Precargado con lo que más se repite -- ahorra escribirlo en la captura
+  // rápida de todos los días; se puede borrar/cambiar sin problema.
+  let concepto = $state('Nike Run');
   let calorias = $state('');
   let guardando = $state(false);
 
@@ -168,7 +170,7 @@
       }
       const creado = (await res.json()) as Entrada;
       entradas = [...entradas, creado];
-      concepto = '';
+      concepto = 'Nike Run';
       calorias = '';
     } catch (e) {
       errorAccion =
