@@ -719,15 +719,38 @@
               {/if}
             </div>
             <div class="card-head-acciones">
+              {#if c.id !== expandedId && estaColapsada(c.id)}
+                <button
+                  type="button"
+                  class="icon-btn card-agregar-rapido"
+                  onclick={() => agregarConsumoRapido(c.id)}
+                  aria-label="Agregar consumo a esta comida"
+                  data-tooltip="Agregar consumo"
+                >
+                  <svg
+                    width="19"
+                    height="19"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+              {/if}
               <button
                 type="button"
                 class="icon-btn card-borrar"
                 onclick={() => (confirmandoEliminarComida = c.id)}
                 aria-label="Eliminar esta comida completa"
+                data-tooltip="Borrar"
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="19"
+                  height="19"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -740,28 +763,6 @@
                 </svg>
               </button>
               {#if c.id !== expandedId}
-                {#if estaColapsada(c.id)}
-                  <button
-                    type="button"
-                    class="icon-btn card-agregar-rapido"
-                    onclick={() => agregarConsumoRapido(c.id)}
-                    aria-label="Agregar consumo a esta comida"
-                    title="Agregar consumo"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </button>
-                {/if}
                 <button
                   type="button"
                   class="icon-btn card-chevron"
@@ -1151,15 +1152,44 @@
     flex-shrink: 0;
   }
 
-  .card-borrar {
-    flex-shrink: 0;
-  }
-
-  /* Atajo junto al chevron, solo en tarjetas replegadas: agrega un consumo
-     directo sin tener que desplegar el acordeón primero para llegar al "+
-     Agregar consumo" de abajo. */
+  /* Bote de borrar y "+" de agregar: un poco más grandes que el resto de los
+     iconitos de la fila (más grandes = mensaje de "estos dos son los que de
+     verdad vas a tocar seguido"), con su propio brillo al pasar el mouse
+     (más notorio que el gris parejo de .icon-btn:hover) y un tooltip propio
+     -- ver el ::after compartido más abajo. */
+  .card-borrar,
   .card-agregar-rapido {
     flex-shrink: 0;
+    position: relative;
+  }
+
+  /* Tooltip propio (no el nativo del navegador): aparece arriba del ícono,
+     con un pequeño rebote hacia arriba al mostrarse. */
+  .card-borrar::after,
+  .card-agregar-rapido::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, 2px);
+    margin-bottom: 6px;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    background: var(--ink);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 5;
+  }
+
+  .card-borrar:hover::after,
+  .card-agregar-rapido:hover::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
   }
 
   /* Chevron del acordeón, estilo dropdown: apunta hacia ABAJO cuando está
@@ -1387,6 +1417,16 @@
 
   .icon-btn:disabled {
     cursor: not-allowed;
+  }
+
+  /* Más específico que .icon-btn:hover para de verdad ganarle (misma
+     especificidad, pero declarado después) -- el bote y el "+" brillan con
+     el volt de la marca en vez del gris parejo del resto de los iconitos. */
+  .card-borrar:hover:not(:disabled),
+  .card-agregar-rapido:hover:not(:disabled) {
+    background: var(--volt);
+    color: var(--volt-ink);
+    box-shadow: 0 0 0 3px rgba(215, 255, 61, 0.45);
   }
 
   .fav-consumo-btn.activo {
