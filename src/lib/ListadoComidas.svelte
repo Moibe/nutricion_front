@@ -1036,8 +1036,11 @@
     gap: 1.2rem;
     /* 640px se quedó corto por ~45px desde que se agregaron los íconos de
        macros (prot/carb/grasa) -- la fecha compacta de la fila colapsada
-       terminaba recortada por el scroll-fallback de .card-head-scroll. */
-    max-width: 700px;
+       terminaba recortada por el scroll-fallback de .card-head-scroll.
+       Y 700px se quedó corto otros ~66px al sumar el chip de % basal por
+       comida: a 780px la fila completa de una tarjeta (título + kcal + basal
+       + 3 macros) cabe entera en escritorio, sin recortar nada. */
+    max-width: 780px;
     margin: 0 auto;
     color: rgba(15, 23, 42, 0.9);
   }
@@ -1167,26 +1170,18 @@
     gap: 0.6rem;
   }
 
-  /* Título + totales conviven en la misma línea que el bote; si no caben
-     (móvil angosto), esta parte se desliza en vez de bajar a otra línea —
-     el bote de borrar se queda fijo y siempre visible, fuera del scroll. */
+  /* Título + totales conviven en la misma línea que el bote. Antes esta parte
+     se deslizaba de lado cuando no cabía, pero eso dejaba chips cortados a la
+     mitad (medido: en escritorio se salía "g grasa"; en móvil, 4 chips). Ahora
+     baja a otro renglón: la tarjeta crece un poco de alto, pero ningún chip
+     queda recortado. El bote sigue fijo y visible, fuera de este bloque. */
   .card-head-scroll {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.45rem;
     min-width: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    /* Aire al final del contenido deslizable: sin esto, el último chip (o la
-       fecha) queda pegado a card-head-acciones (fijo, fuera del scroll) en
-       cuanto se recorta — se ve como si chocaran. */
+    flex-wrap: wrap;
     padding-right: 0.4rem;
-  }
-
-  .card-head-scroll::-webkit-scrollbar {
-    display: none;
   }
 
   /* Bote + chevron agrupados: así .card-head (space-between) los trata como
@@ -1285,8 +1280,9 @@
   /* Todos los chips en UN solo renglón. Antes bajaban a una segunda línea
      (flex-wrap: wrap), pero con el chip de % del basal la fila se partía en
      dos y se veía desbalanceada. Ahora no se parte nunca: si no cabe (móvil
-     angosto, o el día trae también quemadas/neto), se desliza igual que
-     .card-head-scroll en vez de saltar de línea. */
+     angosto, o el día trae también quemadas/neto), se desliza de lado en vez
+     de saltar de línea. (Las tarjetas de comida sí envuelven — ahí pesa más
+     que ningún chip quede cortado; aquí pesa más el renglón único.) */
   .total-dia-scroll {
     display: flex;
     align-items: center;
@@ -1371,11 +1367,15 @@
     cursor: pointer;
   }
 
+  /* Envuelve junto con .card-head-scroll: si este bloque siguiera en nowrap
+     se comportaría como una pieza indivisible y volvería a recortar chips en
+     móvil, aunque el contenedor de afuera ya permita bajar de renglón. */
   .card-totales {
     display: flex;
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-    gap: 0.35rem;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+    gap: 0.3rem;
   }
 
   .total-big {
@@ -1436,6 +1436,30 @@
     border-color: rgba(124, 58, 237, 0.3);
     font-size: 0.85rem;
     padding: 0.25rem 0.55rem;
+  }
+
+  /* Móvil: ya que los chips bajan de renglón en vez de recortarse, encogerlos
+     un poco evita que la cabecera de cada tarjeta se vuelva una torre —
+     medido a 390px: de 5 renglones a 4, y a 430px de 4 a 3. */
+  @media (max-width: 560px) {
+    .card {
+      padding: 0.9rem;
+    }
+
+    .card-label {
+      font-size: 0.95rem;
+    }
+
+    .total-big {
+      font-size: 0.88rem;
+      padding: 0.22rem 0.5rem;
+    }
+
+    .total-big.macro,
+    .total-big.basal {
+      font-size: 0.75rem;
+      padding: 0.18rem 0.45rem;
+    }
   }
 
   .consumos {
