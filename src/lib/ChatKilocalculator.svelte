@@ -249,6 +249,10 @@
   let guardandoFavoritoIdx = $state<number | null>(null);
   let favoritedIdx = $state<Set<number>>(new Set());
   let usandoFavoritoId = $state<number | null>(null);
+  // Empieza replegada: con varios frecuentes guardados, la lista completa
+  // competía por espacio con "Prueba con algo como" antes de que el usuario
+  // llegara a escribir nada.
+  let favoritosAbiertos = $state(false);
 
   $effect(() => {
     (async () => {
@@ -533,32 +537,56 @@
     {#if turns.length === 0}
       {#if favoritos.length > 0}
         <div class="empty favoritos-wrap">
-          <p>Tus frecuentes:</p>
-          <div class="favoritos-list">
-            {#each favoritos as fav (fav.id)}
-              <span class="favorito-chip" class:usando={usandoFavoritoId === fav.id}>
-                <button
-                  type="button"
-                  class="favorito-btn"
-                  onclick={() => usarFavorito(fav)}
-                  disabled={usandoFavoritoId !== null}
-                >
-                  {fav.nombre}{fav.kilocalorias != null ? ` · ${fmt(fav.kilocalorias)} kcal` : ''}
-                  {usandoFavoritoId === fav.id ? '…' : ''}
-                </button>
-                <button
-                  type="button"
-                  class="favorito-borrar"
-                  onclick={() => eliminarFavorito(fav)}
-                  disabled={usandoFavoritoId !== null}
-                  aria-label={`Quitar ${fav.nombre} de frecuentes`}
-                  title="Quitar de frecuentes"
-                >
-                  ×
-                </button>
-              </span>
-            {/each}
-          </div>
+          <button
+            type="button"
+            class="favoritos-toggle"
+            onclick={() => (favoritosAbiertos = !favoritosAbiertos)}
+            aria-expanded={favoritosAbiertos}
+          >
+            Tus frecuentes:
+            <svg
+              class="favoritos-chevron"
+              class:abierto={favoritosAbiertos}
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          {#if favoritosAbiertos}
+            <div class="favoritos-list">
+              {#each favoritos as fav (fav.id)}
+                <span class="favorito-chip" class:usando={usandoFavoritoId === fav.id}>
+                  <button
+                    type="button"
+                    class="favorito-btn"
+                    onclick={() => usarFavorito(fav)}
+                    disabled={usandoFavoritoId !== null}
+                  >
+                    {fav.nombre}{fav.kilocalorias != null ? ` · ${fmt(fav.kilocalorias)} kcal` : ''}
+                    {usandoFavoritoId === fav.id ? '…' : ''}
+                  </button>
+                  <button
+                    type="button"
+                    class="favorito-borrar"
+                    onclick={() => eliminarFavorito(fav)}
+                    disabled={usandoFavoritoId !== null}
+                    aria-label={`Quitar ${fav.nombre} de frecuentes`}
+                    title="Quitar de frecuentes"
+                  >
+                    ×
+                  </button>
+                </span>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
       <div class="empty">
@@ -817,6 +845,34 @@
     margin-bottom: 0.9rem;
     padding-bottom: 0.9rem;
     border-bottom: 1px dashed var(--line);
+  }
+
+  .favoritos-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: rgba(15, 23, 42, 0.6);
+    font: inherit;
+    font-size: inherit;
+    cursor: pointer;
+  }
+
+  .favoritos-toggle:hover {
+    color: var(--ink);
+  }
+
+  /* Mismo estilo dropdown que .card-chevron en ListadoComidas.svelte:
+     apunta hacia abajo replegada, gira 180° hacia arriba abierta. */
+  .favoritos-chevron {
+    transition: transform 0.18s ease;
+  }
+
+  .favoritos-chevron.abierto {
+    transform: rotate(180deg);
   }
 
   .favoritos-list {
