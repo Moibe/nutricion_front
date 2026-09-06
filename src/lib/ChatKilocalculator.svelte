@@ -121,11 +121,16 @@
   let inputEl = $state<HTMLInputElement | null>(null);
 
   // Tras mandar un mensaje (o recibir la respuesta), llevar la vista hasta el
-  // composer — si no, en una conversación larga el usuario se queda viendo
-  // donde estaba antes y tiene que scrollear a mano para ver lo nuevo.
+  // fondo real de la página — si no, en una conversación larga el usuario se
+  // queda viendo donde estaba antes y tiene que scrollear a mano para ver lo
+  // nuevo. Se usa scrollTo al scrollHeight en vez de scrollIntoView(composerEl):
+  // el composer es sticky (pegado al fondo mientras se lee el historial hacia
+  // arriba), así que su propia posición visual no es un ancla confiable —
+  // scrollTo al máximo real del documento no depende de la geometría de
+  // ningún elemento en particular.
   async function scrollAlFondo() {
     await tick();
-    composerEl?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
   }
 
   // Burbujas de resultado, por índice del turno (bind:this en el #each).
