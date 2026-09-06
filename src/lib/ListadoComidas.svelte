@@ -748,6 +748,11 @@
               <span class="card-label">{etiqueta(c)}</span>
               <div class="card-totales">
                 <span class="total-big kcal">{fmt(totalKcal(c))} kcal</span>
+                {#if kcalBasalDia != null && kcalBasalDia > 0}
+                  <span class="total-big basal" title="Porcentaje del metabolismo basal del día ({fmt(kcalBasalDia)} kcal) que aporta esta comida">
+                    {fmt((totalKcal(c) / kcalBasalDia) * 100)}% basal
+                  </span>
+                {/if}
                 <span class="total-big macro">{@render icoProt()}{fmt(totalMacro(c, 'proteinas'))} g prot</span>
                 <span class="total-big macro">{@render icoCarb()}{fmt(totalMacro(c, 'carbohidratos'))} g carb</span>
                 <span class="total-big macro">{@render icoGrasa()}{fmt(totalMacro(c, 'grasas'))} g grasa</span>
