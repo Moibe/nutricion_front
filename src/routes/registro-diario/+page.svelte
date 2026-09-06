@@ -240,7 +240,7 @@
 
   {#if !cargando && !error && !perfil}
     <div class="aviso">
-      Completa tu perfil en <a href="/peso">Peso Hoy</a> para ver las calorías basales y el total —
+      Completa tu perfil en <a href="/peso">Peso</a> para ver las calorías basales y el total —
       sin eso solo se pueden mostrar comidas y ejercicio.
     </div>
   {/if}
