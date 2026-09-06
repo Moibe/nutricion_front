@@ -169,17 +169,6 @@
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // La sugerencia ya no precarga una frase completa: antes ponía "Me comí
-  // unos tacos al pastor." y quien la tocaba se quedaba con un texto ajeno
-  // que había que borrar a mano (incómodo en mobile). Ahora solo siembra el
-  // arranque y deja el cursor al final para seguir dictando/escribiendo.
-  async function usarSugerencia() {
-    input = 'Comí ';
-    await tick();
-    inputEl?.focus();
-    inputEl?.setSelectionRange(input.length, input.length);
-  }
-
   function elegirImagen() {
     fileInputEl?.click();
   }
@@ -599,12 +588,6 @@
           {/if}
         </div>
       {/if}
-      <div class="empty">
-        <p>Prueba con algo como:</p>
-        <button type="button" class="suggestion" onclick={usarSugerencia}>
-          "Comí…"
-        </button>
-      </div>
     {/if}
 
     {#each turns as turn, i (i)}
@@ -831,24 +814,6 @@
   .empty {
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.9rem;
-  }
-
-  .suggestion {
-    margin-top: 0.4rem;
-    background: #ffffff;
-    border: 1px dashed rgba(15, 15, 15, 0.35);
-    border-radius: 10px;
-    padding: 0.5rem 0.8rem;
-    color: var(--ink);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.9rem;
-  }
-
-  .suggestion:hover {
-    background: var(--volt);
-    border-color: var(--volt);
-    border-style: solid;
   }
 
   .favoritos-wrap {
