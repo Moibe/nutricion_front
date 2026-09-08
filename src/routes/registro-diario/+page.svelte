@@ -538,13 +538,17 @@
     user-select: none;
   }
 
+  /* Pegadas a la tabla, encimándose un poco: a -1.35rem quedaban a 15px del
+     borde de la pantalla en un teléfono, chiquitas y sobre el gris de la
+     página, donde se perdían. Así montan medio glifo sobre la fila de hoy
+     (negro sobre volt contrasta bien) y se despegan de la orilla. */
   .hoy-flecha-in {
-    left: -1.35rem;
+    left: -0.5rem;
     animation: hoy-flecha-in-pulso 1.2s ease-in-out infinite;
   }
 
   .hoy-flecha-out {
-    right: -1.35rem;
+    right: -0.5rem;
     animation: hoy-flecha-out-pulso 1.2s ease-in-out infinite;
   }
 
