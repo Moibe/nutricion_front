@@ -1299,6 +1299,31 @@
     display: none;
   }
 
+  /* En un teléfono la etiqueta "Total del día" se comía la mitad del renglón
+     y dejaba la tira en ~171px de 390: cabían dos chips de siete, y el de
+     kcal (el primero y el que más importa) desaparecía al primer empujón, con
+     todo el recorrido por delante para volver a él. Aquí la etiqueta se lleva
+     su propio renglón y la tira usa el ancho completo, así que kcal queda
+     visible en reposo y lo que sobra por deslizar es la mitad. */
+  @media (max-width: 768px) {
+    .total-dia-label {
+      flex-basis: 100%;
+    }
+
+    /* Y en teléfono la tira deja de deslizarse: envuelve. Con los siete chips
+       de un día completo (kcal, % basal, tres macros, quemadas y neto) el
+       renglón mide ~935px contra los ~287px visibles, o sea tres pantallazos
+       de deslizamiento — y el chip de kcal, el que más importa, se pierde en
+       cuanto empujas. Mismo criterio que ya se aplicó a los chips de la
+       cabecera de comida: más vale envolver que recortar o esconder. De 769px
+       para arriba se queda en un solo renglón, que es donde sí cabe. */
+    .total-dia-scroll {
+      flex-wrap: wrap;
+      overflow-x: visible;
+      row-gap: 0.4rem;
+    }
+  }
+
   /* Los chips no se encogen: preferimos deslizar la fila a que el texto de
      un chip se parta en dos renglones. */
   .total-dia-scroll > .total-big {
