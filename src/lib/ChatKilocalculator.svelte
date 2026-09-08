@@ -237,6 +237,7 @@
   // competía por espacio con "Prueba con algo como" antes de que el usuario
   // llegara a escribir nada.
   let favoritosAbiertos = $state(false);
+  let guardandoNada = $state(false);
 
   $effect(() => {
     (async () => {
@@ -422,6 +423,57 @@
     }
   }
 
+  // "No comí nada": deja constancia explícita de que esa comida se saltó, en
+  // vez de dejarla vacía. Registra un consumo en ceros — con eso la comida ya
+  // tiene un consumo, así que su botón se marca con la palomita igual que
+  // cualquier otra capturada, y el total del día no cambia. No pasa por la IA,
+  // así que no gasta tokens.
+  async function registrarNada() {
+    if (guardandoNada || comidaId == null) return;
+    guardandoNada = true;
+    saveError = null;
+    try {
+      // conversation_id sintético y único, mismo criterio que los favoritos:
+      // el back hace upsert por ese campo y esto es un consumo nuevo.
+      const cid = crypto.randomUUID();
+      const res = await fetch(`${API_URL}/consumos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: cid,
+          comida_id: comidaId,
+          platillo: 'Nada',
+          kilocalorias: 0,
+          proteinas: 0,
+          carbohidratos: 0,
+          grasas: 0
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { id: number };
+      // Sin mantenerAbierto: registrar "Nada" cierra el tema de esa comida,
+      // así que el panel se cierra y la tarjeta se repliega como al guardar.
+      onGuardado?.({
+        id: data.id,
+        conversation_id: cid,
+        platillo: 'Nada',
+        kilocalorias: 0,
+        proteinas: 0,
+        carbohidratos: 0,
+        grasas: 0
+      });
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      guardandoNada = false;
+    }
+  }
+
   // Usar un favorito: salta la IA por completo, POST directo a /consumos con
   // las macros ya guardadas. conversation_id se sintetiza aquí mismo (no hay
   // conversación real de por medio) — tiene que ser único porque el back
@@ -526,6 +578,14 @@
 
   <div class="log">
     {#if turns.length === 0}
+      {#if comidaId != null}
+        <div class="empty nada-wrap">
+          <button type="button" class="nada-btn" onclick={registrarNada} disabled={guardandoNada}>
+            {guardandoNada ? 'Guardando…' : 'No comí nada'}
+          </button>
+          <span class="nada-hint">Queda en 0 kcal y la comida se marca como capturada.</span>
+        </div>
+      {/if}
       {#if favoritos.length > 0}
         <div class="empty favoritos-wrap">
           <button
@@ -1200,6 +1260,42 @@
   .adjuntar-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .nada-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .nada-btn {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.4rem 0.8rem;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+
+  .nada-btn:hover:not(:disabled) {
+    background: var(--volt);
+    border-color: var(--volt);
+  }
+
+  .nada-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .nada-hint {
+    font-size: 0.78rem;
+    color: rgba(15, 23, 42, 0.6);
   }
 
   .composer {
