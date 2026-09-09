@@ -1142,15 +1142,16 @@
   }
 
   /* El mismo "cuanto me queda" pero en kcal, no en porcentaje: mismo tamano y
-     forma que el morado, en ambar para que se distingan sin leerlos. */
+     forma que el morado, y el MISMO amarillo (--volt) que los chips de kcal
+     de las tarjetas -- amarillo = kcal en toda la pagina. */
   .kcal-libres {
     display: inline-block;
     margin-left: 0.35rem;
     font-size: 0.8rem;
     font-weight: 700;
-    color: #b45309;
-    background: rgba(245, 158, 11, 0.16);
-    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: var(--ink);
+    background: var(--volt);
+    border: 1px solid var(--volt);
     border-radius: 999px;
     padding: 0.12rem 0.5rem;
     white-space: nowrap;
