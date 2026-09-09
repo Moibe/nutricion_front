@@ -241,6 +241,16 @@
     return perfil.sexo === 'hombre' ? base + 5 : base - 161;
   });
 
+  // Lo que TE QUEDA del basal, para el indicador junto al peso: el mismo
+  // dato que el chip morado pero al revés (100% - consumido), que es como se
+  // lee de un vistazo "cuánto me falta". Negativo cuando ya te pasaste: ahí
+  // se muestra 0% y el sobrante vive en el title.
+  const basalRestante = $derived.by(() => {
+    if (kcalBasalDia == null || kcalBasalDia <= 0) return null;
+    const kcal = kcalBasalDia - totalDia.kcal;
+    return { kcal, pct: (kcal / kcalBasalDia) * 100 };
+  });
+
   // "kcal quemadas" del día = Atajo de iOS (metricas-ios) + bitácora manual
   // (ejercicios) sumadas. hayQuemadasDia distingue "0 kcal capturadas" de
   // "nada capturado" para no mostrar el chip cuando no hay ningún dato.
@@ -702,8 +712,21 @@
         {:else if fechaFiltro}
           <p class="hoy">Editando: <strong>{formatoFechaLarga(fechaFiltro)}</strong></p>
         {/if}
-        {#if filaPesoDia}
-          <p class="peso-dia">Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong></p>
+        {#if filaPesoDia || basalRestante}
+          <p class="peso-dia">
+            {#if filaPesoDia}Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong>{/if}
+            {#if basalRestante}
+              <span
+                class="basal-restante"
+                class:excedido={basalRestante.kcal < 0}
+                title={basalRestante.kcal < 0
+                  ? `Ya cubriste tu basal del dia (${fmt(kcalBasalDia ?? 0)} kcal): llevas ${fmt(-basalRestante.kcal)} kcal de mas`
+                  : `Te quedan ${fmt(basalRestante.kcal)} kcal de tu metabolismo basal del dia (${fmt(kcalBasalDia ?? 0)} kcal)`}
+              >
+                {basalRestante.kcal < 0 ? '0' : fmt(basalRestante.pct)}% basal libre
+              </span>
+            {/if}
+          </p>
         {/if}
       </div>
     {/if}
@@ -1085,6 +1108,28 @@
 
   .peso-dia strong {
     color: var(--ink);
+  }
+
+  /* Cuanto te QUEDA del basal, en el mismo morado que el chip de "% basal"
+     del total -- son el mismo dato visto al reves, y compartir color los
+     hermana de un vistazo. Rojo cuando ya te pasaste. */
+  .basal-restante {
+    display: inline-block;
+    margin-left: 0.45rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #6d28d9;
+    background: rgba(124, 58, 237, 0.12);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 999px;
+    padding: 0.12rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .basal-restante.excedido {
+    color: #b91c1c;
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.3);
   }
 
   .botones {
