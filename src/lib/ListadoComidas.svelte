@@ -725,6 +725,15 @@
               >
                 {basalRestante.kcal < 0 ? '0' : fmt(basalRestante.pct)}% basal libre
               </span>
+              <span
+                class="kcal-libres"
+                class:excedido={basalRestante.kcal < 0}
+                title={basalRestante.kcal < 0
+                  ? `Ya no te quedan kcal basales: llevas ${fmt(-basalRestante.kcal)} kcal de mas`
+                  : `Kcal que te quedan del basal del dia (${fmt(kcalBasalDia ?? 0)} kcal)`}
+              >
+                {basalRestante.kcal < 0 ? '0' : fmt(basalRestante.kcal)} kcal libres
+              </span>
             {/if}
           </p>
         {/if}
@@ -1127,6 +1136,27 @@
   }
 
   .basal-restante.excedido {
+    color: #b91c1c;
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.3);
+  }
+
+  /* El mismo "cuanto me queda" pero en kcal, no en porcentaje: mismo tamano y
+     forma que el morado, en ambar para que se distingan sin leerlos. */
+  .kcal-libres {
+    display: inline-block;
+    margin-left: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 999px;
+    padding: 0.12rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .kcal-libres.excedido {
     color: #b91c1c;
     background: rgba(220, 38, 38, 0.12);
     border-color: rgba(220, 38, 38, 0.3);
