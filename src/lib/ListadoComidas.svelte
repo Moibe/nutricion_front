@@ -241,16 +241,6 @@
     return perfil.sexo === 'hombre' ? base + 5 : base - 161;
   });
 
-  // Lo que TE QUEDA del basal, para el indicador junto al peso: el mismo
-  // dato que el chip morado pero al revés (100% - consumido), que es como se
-  // lee de un vistazo "cuánto me falta". Negativo cuando ya te pasaste: ahí
-  // se muestra 0% y el sobrante vive en el title.
-  const basalRestante = $derived.by(() => {
-    if (kcalBasalDia == null || kcalBasalDia <= 0) return null;
-    const kcal = kcalBasalDia - totalDia.kcal;
-    return { kcal, pct: (kcal / kcalBasalDia) * 100 };
-  });
-
   // "kcal quemadas" del día = Atajo de iOS (metricas-ios) + bitácora manual
   // (ejercicios) sumadas. hayQuemadasDia distingue "0 kcal capturadas" de
   // "nada capturado" para no mostrar el chip cuando no hay ningún dato.
@@ -261,6 +251,19 @@
   );
   const hayQuemadasDia = $derived(filaQuemadasDia !== undefined || kcalQuemadasManualDia > 0);
   const kcalQuemadasDia = $derived((filaQuemadasDia?.valor ?? 0) + kcalQuemadasManualDia);
+
+  // Lo que TE QUEDA para comer hoy, para los chips junto al peso: el mismo
+  // dato que el chip morado del total pero al revés (cuánto falta, no cuánto
+  // llevas). El ejercicio SUMA al presupuesto: si quemaste 300 kcal, tienes
+  // 300 kcal más de margen -- por eso el porcentaje se mide contra
+  // basal + quemadas, no contra el basal a secas. Negativo cuando ya te
+  // pasaste: ahí se muestra 0 y el sobrante vive en el title.
+  const basalRestante = $derived.by(() => {
+    if (kcalBasalDia == null || kcalBasalDia <= 0) return null;
+    const presupuesto = kcalBasalDia + kcalQuemadasDia;
+    const kcal = presupuesto - totalDia.kcal;
+    return { kcal, presupuesto, pct: (kcal / presupuesto) * 100, conEjercicio: kcalQuemadasDia > 0 };
+  });
 
   // Título del encabezado: la fecha ya no se embebe aquí (va en la línea
   // "Editando: X" de abajo, junto al peso) -- mismo patrón que Ejercicio.
@@ -716,21 +719,25 @@
           <p class="peso-dia">
             {#if filaPesoDia}Peso: <strong>{fmt(filaPesoDia.valor)} kg</strong>{/if}
             {#if basalRestante}
+              {@const desglose = basalRestante.conEjercicio
+                ? `Basal ${fmt(kcalBasalDia ?? 0)} + ${fmt(kcalQuemadasDia)} quemadas − ${fmt(totalDia.kcal)} consumidas`
+                : `Basal ${fmt(kcalBasalDia ?? 0)} − ${fmt(totalDia.kcal)} consumidas`}
               <span
                 class="basal-restante"
                 class:excedido={basalRestante.kcal < 0}
                 title={basalRestante.kcal < 0
-                  ? `Ya cubriste tu basal del dia (${fmt(kcalBasalDia ?? 0)} kcal): llevas ${fmt(-basalRestante.kcal)} kcal de mas`
-                  : `Te quedan ${fmt(basalRestante.kcal)} kcal de tu metabolismo basal del dia (${fmt(kcalBasalDia ?? 0)} kcal)`}
+                  ? `Ya te pasaste por ${fmt(-basalRestante.kcal)} kcal. ${desglose}`
+                  : `${desglose}`}
               >
-                {basalRestante.kcal < 0 ? '0' : fmt(basalRestante.pct)}% basal libre
+                {basalRestante.kcal < 0 ? '0' : fmt(basalRestante.pct)}%
+                {basalRestante.conEjercicio ? 'libre' : 'basal libre'}
               </span>
               <span
                 class="kcal-libres"
                 class:excedido={basalRestante.kcal < 0}
                 title={basalRestante.kcal < 0
-                  ? `Ya no te quedan kcal basales: llevas ${fmt(-basalRestante.kcal)} kcal de mas`
-                  : `Kcal que te quedan del basal del dia (${fmt(kcalBasalDia ?? 0)} kcal)`}
+                  ? `Ya no te quedan kcal: te pasaste por ${fmt(-basalRestante.kcal)}. ${desglose}`
+                  : `${desglose}`}
               >
                 {basalRestante.kcal < 0 ? '0' : fmt(basalRestante.kcal)} kcal libres
               </span>
