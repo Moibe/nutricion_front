@@ -1071,8 +1071,12 @@
        terminaba recortada por el scroll-fallback de .card-head-scroll.
        Y 700px se quedó corto otros ~66px al sumar el chip de % basal por
        comida: a 780px la fila completa de una tarjeta (título + kcal + basal
-       + 3 macros) cabe entera en escritorio, sin recortar nada. */
-    max-width: 780px;
+       + 3 macros) cabe entera en escritorio, sin recortar nada.
+       Y 780px se quedo corto otra vez en los dias CON ejercicio: ahi el Total
+       del dia trae siete chips (kcal, % basal, 3 macros, quemadas y neto) que
+       miden ~780px de tira; a 980px caben los siete completos con holgura de
+       sobra para numeros de cuatro digitos. */
+    max-width: 980px;
     margin: 0 auto;
     color: rgba(15, 23, 42, 0.9);
   }
@@ -1512,6 +1516,15 @@
     color: var(--ink);
     background: var(--volt);
     border-color: var(--volt);
+  }
+
+  /* Quemadas y neto van del tamano de los macros (no del de kcal): son datos
+     de apoyo, y achicarlos es lo que deja caber los siete chips del dia con
+     ejercicio en un solo renglon. */
+  .total-big.quemadas,
+  .total-big.neto {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.55rem;
   }
 
   /* Quemadas: tono naranja/ámbar, para distinguirlas de las consumidas (azul). */
