@@ -119,8 +119,12 @@
     // (ejercicios) sumadas por día.
     const ejercicioPorDia = new Map<string, number>();
     for (const m of metricasRaw) {
+      // El peso se guarda COMPLETO (incluidos los 30 días de colchón previos
+      // al mes) porque de ahí sale la comparación de la flechita; las kcal
+      // quemadas NO: esas se acotan al mes en pantalla o el colchón mete
+      // filas del mes pasado en la tabla.
       if (m.tipo === 'peso') pesoPorDia.set(m.fecha, m.valor);
-      if (m.tipo === 'calorias_quemadas') {
+      if (m.tipo === 'calorias_quemadas' && m.fecha >= desde && m.fecha <= hasta) {
         ejercicioPorDia.set(m.fecha, (ejercicioPorDia.get(m.fecha) ?? 0) + m.valor);
       }
     }
@@ -302,6 +306,7 @@
                       aria-label="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kilos"
                     >
                       {f.deltaPeso < 0 ? '▼' : '▲'}
+                      <span class="delta-cifra">({fmt(Math.abs(f.deltaPeso))})</span>
                     </span>
                   {/if}
                 {:else}
@@ -521,6 +526,13 @@
     font-size: 0.62rem;
     line-height: 1;
     vertical-align: 1px;
+  }
+
+  /* La cifra hereda el verde/rojo del triangulito, pero en el tamaño normal
+     de la tabla -- el glifo va chiquito porque es un símbolo, el número no. */
+  .delta-cifra {
+    font-size: 0.78rem;
+    margin-left: 0.1rem;
   }
 
   .delta-peso.baje {
