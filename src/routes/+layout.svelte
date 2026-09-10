@@ -154,6 +154,37 @@
     --ink: #0f0f0f;
     --ink-soft: rgba(15, 15, 15, 0.62);
     --line: rgba(15, 15, 15, 0.12);
+    /* Par "bajé / subí" de peso. Default: el verde/rojo de siempre. */
+    --peso-baje: #16a34a;
+    --peso-subi: #dc2626;
+  }
+
+  /* Filtro de daltonismo (preferencia por usuario, ver src/lib/daltonismo.ts).
+     Se activa poniendo data-daltonismo="<tipo>" en un contenedor: los tokens
+     se redefinen ahí y bajan por cascada a lo que esté adentro, así que la
+     misma regla sirve para la tabla de Registro Diario y para la muestra de
+     /configuracion sin duplicar hex.
+
+     Protanopia y deuteranopia son las dos que confunden verde con rojo: van a
+     azul/naranja, el par recomendado para ese caso (paleta Okabe-Ito). La
+     protanopia además ve los rojos oscuros, por eso su "subí" es un ámbar más
+     luminoso que el bermellón de la deuteranopia. La tritanopia distingue bien
+     verde y rojo (lo suyo es azul/amarillo), así que conserva el par pero con
+     tonos más saturados -- y sobre todo NO usa azul, que es justo el que se le
+     confunde con el verde. */
+  :global([data-daltonismo='protanopia']) {
+    --peso-baje: #0072b2;
+    --peso-subi: #e69f00;
+  }
+
+  :global([data-daltonismo='deuteranopia']) {
+    --peso-baje: #0072b2;
+    --peso-subi: #d55e00;
+  }
+
+  :global([data-daltonismo='tritanopia']) {
+    --peso-baje: #009e73;
+    --peso-subi: #d55e00;
   }
 
   :global(body) {
