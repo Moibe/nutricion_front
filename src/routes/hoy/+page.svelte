@@ -68,8 +68,10 @@
 <ListadoComidas soloHoy={!esOtroDia} fechaFiltro={esOtroDia ? fechaValida : null} />
 
 <style>
+  /* Al ancho del listado (ver .listado en ListadoComidas): así las flechitas
+     arrancan justo sobre el borde de las tarjetas y no 140px adentro. */
   .nav-dia {
-    max-width: 700px;
+    max-width: 980px;
     margin: 0 auto 0.6rem;
     display: flex;
     align-items: center;
