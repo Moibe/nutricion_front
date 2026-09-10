@@ -153,24 +153,38 @@
     // dias, la comparacion honesta es contra el ultimo que si registraste.
     const fechasPesadas = [...pesoPorDia.keys()].sort();
 
+    // Extraido para reusarlo con dos fechas por fila: la del propio dia (para
+    // la columna Peso) y la del dia SIGUIENTE (para la columna "Peso día
+    // siguiente" -- el peso que amaneciste teniendo es, en el fondo, el
+    // resultado de lo que hiciste el día de la fila de arriba).
+    function pesoYDelta(fecha: string) {
+      const peso = pesoPorDia.get(fecha) ?? null;
+      if (peso === null) return { peso: null, delta: null, fechaPrevio: null };
+
+      let pesoPrevio: { fecha: string; valor: number } | null = null;
+      const i = fechasPesadas.findIndex((f) => f >= fecha);
+      const anterior = i > 0 ? fechasPesadas[i - 1] : null;
+      if (anterior) pesoPrevio = { fecha: anterior, valor: pesoPorDia.get(anterior)! };
+
+      // Redondeado a 1 decimal ANTES de comparar: el peso se captura y se
+      // muestra con un decimal, asi que un 87.44 vs 87.35 debe leerse como
+      // "igual", no como una bajada invisible en pantalla.
+      const delta = pesoPrevio !== null ? Math.round((peso - pesoPrevio.valor) * 10) / 10 : null;
+      return { peso, delta, fechaPrevio: pesoPrevio?.fecha ?? null };
+    }
+
     return [...todasLasFechas]
       .sort((a, b) => b.localeCompare(a))
       .map((fecha) => {
-        const peso = pesoPorDia.get(fecha) ?? null;
+        const { peso, delta: deltaPeso, fechaPrevio: fechaPesoPrevio } = pesoYDelta(fecha);
 
-        let pesoPrevio: { fecha: string; valor: number } | null = null;
-        if (peso !== null) {
-          const i = fechasPesadas.findIndex((f) => f >= fecha);
-          const anterior = i > 0 ? fechasPesadas[i - 1] : null;
-          if (anterior) pesoPrevio = { fecha: anterior, valor: pesoPorDia.get(anterior)! };
-        }
-        // Redondeado a 1 decimal ANTES de comparar: el peso se captura y se
-        // muestra con un decimal, asi que un 87.44 vs 87.35 debe leerse como
-        // "igual", no como una bajada invisible en pantalla.
-        const deltaPeso =
-          peso !== null && pesoPrevio !== null
-            ? Math.round((peso - pesoPrevio.valor) * 10) / 10
-            : null;
+        // El peso de MAÑANA, visto desde la fila de HOY: repite exactamente
+        // lo que la fila de mañana muestra en su propia columna Peso (mismo
+        // valor, mismo triangulito) -- no es un dato nuevo, es el mismo dato
+        // "movido hacia abajo un renglón" para poder leerlo junto a lo que se
+        // hizo ese día.
+        const siguiente = pesoYDelta(sumarDias(fecha, 1));
+
         const kcalComidas = kcalComidasPorDia.get(fecha) ?? 0;
         const kcalEjercicio = ejercicioPorDia.get(fecha) ?? 0;
 
@@ -185,9 +199,13 @@
 
         return {
           fecha,
+          fechaSiguiente: sumarDias(fecha, 1),
           peso,
           deltaPeso,
-          fechaPesoPrevio: pesoPrevio?.fecha ?? null,
+          fechaPesoPrevio,
+          pesoSiguiente: siguiente.peso,
+          deltaPesoSiguiente: siguiente.delta,
+          fechaPesoSiguientePrevio: siguiente.fechaPrevio,
           kcalBasal,
           kcalComidas,
           kcalEjercicio,
@@ -221,11 +239,13 @@
       try {
         const [resComidas, resMetricas, resEjercicios] = await Promise.all([
           fetch(`${API_URL}/comidas?desde=${d}&hasta=${h}`),
-          // 30 dias de colchon hacia atras: son SOLO para comparar el peso del
-          // primer dia del mes contra el ultimo dia pesado (la flechita de
-          // subi/baje). Las filas de la tabla siguen acotadas a [desde, hasta]
-          // -- ver el filtro en `filas`.
-          fetch(`${API_URL}/metricas-ios?desde=${sumarDias(d, -30)}&hasta=${h}`),
+          // Colchon de 30 dias hacia atras (comparar el peso del primer dia del
+          // mes contra el ultimo dia pesado, para la flechita de subi/baje) y
+          // 1 dia hacia adelante (la columna "peso siguiente" del ULTIMO dia
+          // del mes necesita el peso del dia 1 del mes que sigue). Las filas
+          // de la tabla siguen acotadas a [desde, hasta] -- ver el filtro en
+          // `filas`.
+          fetch(`${API_URL}/metricas-ios?desde=${sumarDias(d, -30)}&hasta=${sumarDias(h, 1)}`),
           fetch(`${API_URL}/ejercicios?desde=${d}&hasta=${h}`)
         ]);
         if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
@@ -276,6 +296,21 @@
     <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
     <div class="tabla-scroll">
+      {#snippet trianguloPeso(delta: number | null, fechaPrevio: string | null)}
+        {#if delta !== null && delta !== 0}
+          <span
+            class="delta-peso"
+            class:baje={delta < 0}
+            class:subi={delta > 0}
+            title="{delta < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(delta))} kg respecto al {formatoFecha(fechaPrevio ?? '')}"
+            aria-label="{delta < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(delta))} kilos"
+          >
+            {delta < 0 ? '▼' : '▲'}
+            <span class="delta-cifra">({fmt(Math.abs(delta))})</span>
+          </span>
+        {/if}
+      {/snippet}
+
       <table class="tabla-registro">
         <thead>
           <tr>
@@ -285,6 +320,9 @@
             <th class="col-comidas"><span class="completo">Comidas (kcal)</span><span class="compacto">Comida</span></th>
             <th class="col-ejercicio"><span class="completo">Ejercicio (kcal)</span><span class="compacto">Ejerc.</span></th>
             <th class="col-total"><span class="completo">Total (kcal)</span><span class="compacto">Total</span></th>
+            <th class="col-peso-sig">
+              <span class="completo">Peso día siguiente (kg)</span><span class="compacto">P. sig.</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -297,18 +335,7 @@
               <td class="col-peso">
                 {#if f.peso !== null}
                   <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.peso)}</a>
-                  {#if f.deltaPeso !== null && f.deltaPeso !== 0}
-                    <span
-                      class="delta-peso"
-                      class:baje={f.deltaPeso < 0}
-                      class:subi={f.deltaPeso > 0}
-                      title="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kg respecto al {formatoFecha(f.fechaPesoPrevio ?? '')}"
-                      aria-label="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kilos"
-                    >
-                      {f.deltaPeso < 0 ? '▼' : '▲'}
-                      <span class="delta-cifra">({fmt(Math.abs(f.deltaPeso))})</span>
-                    </span>
-                  {/if}
+                  {@render trianguloPeso(f.deltaPeso, f.fechaPesoPrevio)}
                 {:else}
                   <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
                 {/if}
@@ -335,6 +362,23 @@
                   <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver el día completo">{fmt(f.total)}</a>
                 {:else}
                   <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                {/if}
+              </td>
+              <td class="col-peso-sig">
+                {#if f.pesoSiguiente !== null}
+                  <a
+                    class="celda-link"
+                    href="/peso?fecha={f.fechaSiguiente}"
+                    title="Ver/editar el peso del día siguiente ({formatoFecha(f.fechaSiguiente)})"
+                  >{fmt(f.pesoSiguiente)}</a>
+                  {@render trianguloPeso(f.deltaPesoSiguiente, f.fechaPesoSiguientePrevio)}
+                {:else if f.fechaSiguiente <= hoyISO}
+                  <a class="vacio" href="/peso?fecha={f.fechaSiguiente}" title="Capturar el peso del día siguiente">—</a>
+                {:else}
+                  <!-- El día siguiente todavía no llega (es "mañana" de verdad) --
+                       nada que capturar todavía, así que sin link a diferencia
+                       de .vacio. -->
+                  <span class="sin-dato" aria-hidden="true">—</span>
                 {/if}
               </td>
             </tr>
@@ -478,7 +522,8 @@
     color: var(--ink-soft);
   }
 
-  .tabla-registro thead th.col-peso {
+  .tabla-registro thead th.col-peso,
+  .tabla-registro thead th.col-peso-sig {
     color: #6d28d9;
   }
 
@@ -562,6 +607,13 @@
     color: var(--ink);
     border-bottom-color: var(--ink);
     border-bottom-style: solid;
+  }
+
+  /* "Peso día siguiente" de la fila de HOY (o de cualquier día futuro que
+     llegara a aparecer): ese día todavía no pasa, así que a diferencia de
+     .vacio no hay nada que ir a capturar -- ni subrayado ni link. */
+  .sin-dato {
+    color: rgba(15, 15, 15, 0.3);
   }
 
   /* Celda con dato ya capturado: también clicable (a /peso, /hoy o
