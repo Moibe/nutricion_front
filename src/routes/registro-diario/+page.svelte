@@ -6,10 +6,13 @@
   // client-side (mismo patrón que el resto de la app).
   import { env } from '$env/dynamic/public';
 
+  // data.daltonismo llega del +page.server.ts (preferencia del usuario).
+  let { data }: { data: { daltonismo: string } } = $props();
+
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX), para
-  // marcar el renglón de hoy con las flechitas animadas.
+  // marcar con el fondo volt el renglón de hoy.
   const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
   const [hoyAnio, hoyMesNum] = hoyISO.split('-').map(Number);
 
@@ -275,7 +278,7 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
-    <div class="tabla-scroll">
+    <div class="tabla-scroll" data-daltonismo={data.daltonismo}>
       <table class="tabla-registro">
         <thead>
           <tr>
@@ -535,12 +538,15 @@
     margin-left: 0.1rem;
   }
 
+  /* Los hex viven en +layout.svelte: el filtro de daltonismo del usuario
+     redefine estos dos tokens en el contenedor (data-daltonismo) y la cascada
+     hace el resto. */
   .delta-peso.baje {
-    color: #16a34a;
+    color: var(--peso-baje);
   }
 
   .delta-peso.subi {
-    color: #dc2626;
+    color: var(--peso-subi);
   }
 
   /* Celda vacía (peso/basal/total sin dato): clicable → /peso?fecha=X para
