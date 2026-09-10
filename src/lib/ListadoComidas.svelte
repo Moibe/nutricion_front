@@ -1147,9 +1147,9 @@
   }
 
   .basal-restante.excedido {
-    color: #b91c1c;
-    background: rgba(220, 38, 38, 0.12);
-    border-color: rgba(220, 38, 38, 0.3);
+    color: var(--senal-mal);
+    background: var(--senal-mal-fondo);
+    border-color: var(--senal-mal-borde);
   }
 
   /* El mismo "cuanto me queda" pero en kcal, no en porcentaje: mismo tamano y
@@ -1169,9 +1169,9 @@
   }
 
   .kcal-libres.excedido {
-    color: #b91c1c;
-    background: rgba(220, 38, 38, 0.12);
-    border-color: rgba(220, 38, 38, 0.3);
+    color: var(--senal-mal);
+    background: var(--senal-mal-fondo);
+    border-color: var(--senal-mal-borde);
   }
 
   .botones {
@@ -1541,10 +1541,12 @@
     border-color: rgba(234, 88, 12, 0.35);
   }
 
+  /* Neto = lo que "va bien" del día, por token (ver +layout.svelte): el filtro
+     de daltonismo del usuario lo redefine en <main> y baja por cascada. */
   .total-big.neto {
-    color: #166534;
-    background: rgba(22, 163, 74, 0.14);
-    border-color: rgba(22, 163, 74, 0.35);
+    color: var(--senal-bien);
+    background: var(--senal-bien-fondo);
+    border-color: var(--senal-bien-borde);
   }
 
   /* % del basal: morado, neutral (ni "bien" ni "mal" como quemadas/neto) --

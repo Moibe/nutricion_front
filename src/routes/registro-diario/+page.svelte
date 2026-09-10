@@ -6,9 +6,6 @@
   // client-side (mismo patrón que el resto de la app).
   import { env } from '$env/dynamic/public';
 
-  // data.daltonismo llega del +page.server.ts (preferencia del usuario).
-  let { data }: { data: { daltonismo: string } } = $props();
-
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
   // Misma zona horaria que usa el resto de la app para "hoy" (CDMX), para
@@ -278,7 +275,7 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
-    <div class="tabla-scroll" data-daltonismo={data.daltonismo}>
+    <div class="tabla-scroll">
       <table class="tabla-registro">
         <thead>
           <tr>
@@ -509,13 +506,15 @@
     color: var(--ink);
   }
 
+  /* Colores por token (ver +layout.svelte): el filtro de daltonismo del
+     usuario los redefine en <main> y la cascada hace el resto. */
   .col-total.superavit {
-    color: #9a3412;
+    color: var(--total-superavit);
     font-weight: 700;
   }
 
   .col-total.deficit {
-    color: #166534;
+    color: var(--senal-bien);
     font-weight: 700;
   }
 

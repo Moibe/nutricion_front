@@ -123,7 +123,11 @@
 {:else}
   <TopNav {mobileOpen} {toggleMobile} usuario={data.usuario} />
   <Sidebar {collapsed} {toggleCollapsed} {mobileOpen} {closeMobile} usuario={data.usuario} />
-  <main class={collapsed ? 'collapsed' : ''}>
+  <!-- data-daltonismo aquí y no en cada página: los tokens de color se
+       redefinen en este contenedor y bajan por cascada a TODO lo de adentro,
+       así que una sola línea cubre la tabla de Registro Diario, los chips de
+       Alimentación y lo que venga después. -->
+  <main class={collapsed ? 'collapsed' : ''} data-daltonismo={data.daltonismo}>
     <div class="work-scroll">
       {@render children()}
     </div>
@@ -154,9 +158,22 @@
     --ink: #0f0f0f;
     --ink-soft: rgba(15, 15, 15, 0.62);
     --line: rgba(15, 15, 15, 0.12);
-    /* Par "bajé / subí" de peso. Default: el verde/rojo de siempre. */
+    /* Señales de "esto va bien / esto va mal", compartidas por toda la app:
+       bajar de peso, déficit calórico y kcal netas son "bien"; subir de peso,
+       superávit y pasarte del basal son "mal". Los defaults son exactamente
+       los hex que ya tenía cada cosa, para que "Sin filtro" se vea igual que
+       siempre; el filtro de daltonismo solo los reemplaza. */
     --peso-baje: #16a34a;
     --peso-subi: #dc2626;
+    --senal-bien: #166534;
+    --senal-bien-fondo: rgba(22, 163, 74, 0.14);
+    --senal-bien-borde: rgba(22, 163, 74, 0.35);
+    --senal-mal: #b91c1c;
+    --senal-mal-fondo: rgba(220, 38, 38, 0.12);
+    --senal-mal-borde: rgba(220, 38, 38, 0.3);
+    /* El superávit de la tabla trae su propio terracota, más apagado que el
+       rojo de "te pasaste" -- con filtro los dos se unifican. */
+    --total-superavit: #9a3412;
   }
 
   /* Filtro de daltonismo (preferencia por usuario, ver src/lib/daltonismo.ts).
@@ -175,16 +192,37 @@
   :global([data-daltonismo='protanopia']) {
     --peso-baje: #0072b2;
     --peso-subi: #e69f00;
+    --senal-bien: #0072b2;
+    --senal-bien-fondo: rgba(0, 114, 178, 0.14);
+    --senal-bien-borde: rgba(0, 114, 178, 0.4);
+    --senal-mal: #e69f00;
+    --senal-mal-fondo: rgba(230, 159, 0, 0.14);
+    --senal-mal-borde: rgba(230, 159, 0, 0.4);
+    --total-superavit: #e69f00;
   }
 
   :global([data-daltonismo='deuteranopia']) {
     --peso-baje: #0072b2;
     --peso-subi: #d55e00;
+    --senal-bien: #0072b2;
+    --senal-bien-fondo: rgba(0, 114, 178, 0.14);
+    --senal-bien-borde: rgba(0, 114, 178, 0.4);
+    --senal-mal: #d55e00;
+    --senal-mal-fondo: rgba(213, 94, 0, 0.14);
+    --senal-mal-borde: rgba(213, 94, 0, 0.4);
+    --total-superavit: #d55e00;
   }
 
   :global([data-daltonismo='tritanopia']) {
     --peso-baje: #009e73;
     --peso-subi: #d55e00;
+    --senal-bien: #009e73;
+    --senal-bien-fondo: rgba(0, 158, 115, 0.14);
+    --senal-bien-borde: rgba(0, 158, 115, 0.4);
+    --senal-mal: #d55e00;
+    --senal-mal-fondo: rgba(213, 94, 0, 0.14);
+    --senal-mal-borde: rgba(213, 94, 0, 0.4);
+    --total-superavit: #d55e00;
   }
 
   :global(body) {
