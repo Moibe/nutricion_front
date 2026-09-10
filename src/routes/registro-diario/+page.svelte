@@ -106,6 +106,15 @@
     return `${d}/${m}`;
   }
 
+  // Suma/resta días en UTC puro (sin horas de por medio) para no depender de
+  // la zona horaria del navegador -- mismo helper que /hoy, /ejercicio y /peso.
+  function sumarDias(fechaISO: string, delta: number): string {
+    const [y, m, d] = fechaISO.split('-').map(Number);
+    const fecha = new Date(Date.UTC(y, m - 1, d));
+    fecha.setUTCDate(fecha.getUTCDate() + delta);
+    return fecha.toISOString().slice(0, 10);
+  }
+
   // Edad AL DÍA de esa fila (no la de hoy) — un día de hace tiempo debe usar
   // la edad que tenías entonces, aunque sea prácticamente siempre la misma.
   function calcularEdad(fechaNacimiento: string, enFecha: string): number {
@@ -143,7 +152,9 @@
 
     const todasLasFechas = new Set([
       ...kcalComidasPorDia.keys(),
-      ...pesoPorDia.keys(),
+      // Filtrado al mes en pantalla: pesoPorDia trae 30 dias extra hacia
+      // atras (para la flechita de subi/baje) que NO deben volverse filas.
+      ...[...pesoPorDia.keys()].filter((f) => f >= desde && f <= hasta),
       ...ejercicioPorDia.keys()
     ]);
 
@@ -155,10 +166,29 @@
       todasLasFechas.add(hoyISO);
     }
 
+    // Fechas pesadas en orden ascendente, para poder buscar "el ultimo dia
+    // con peso ANTES de este" -- que no siempre es ayer: si te saltas dos
+    // dias, la comparacion honesta es contra el ultimo que si registraste.
+    const fechasPesadas = [...pesoPorDia.keys()].sort();
+
     return [...todasLasFechas]
       .sort((a, b) => b.localeCompare(a))
       .map((fecha) => {
         const peso = pesoPorDia.get(fecha) ?? null;
+
+        let pesoPrevio: { fecha: string; valor: number } | null = null;
+        if (peso !== null) {
+          const i = fechasPesadas.findIndex((f) => f >= fecha);
+          const anterior = i > 0 ? fechasPesadas[i - 1] : null;
+          if (anterior) pesoPrevio = { fecha: anterior, valor: pesoPorDia.get(anterior)! };
+        }
+        // Redondeado a 1 decimal ANTES de comparar: el peso se captura y se
+        // muestra con un decimal, asi que un 87.44 vs 87.35 debe leerse como
+        // "igual", no como una bajada invisible en pantalla.
+        const deltaPeso =
+          peso !== null && pesoPrevio !== null
+            ? Math.round((peso - pesoPrevio.valor) * 10) / 10
+            : null;
         const kcalComidas = kcalComidasPorDia.get(fecha) ?? 0;
         const kcalEjercicio = ejercicioPorDia.get(fecha) ?? 0;
 
@@ -171,7 +201,16 @@
 
         const total = kcalBasal !== null ? kcalComidas - (kcalBasal + kcalEjercicio) : null;
 
-        return { fecha, peso, kcalBasal, kcalComidas, kcalEjercicio, total };
+        return {
+          fecha,
+          peso,
+          deltaPeso,
+          fechaPesoPrevio: pesoPrevio?.fecha ?? null,
+          kcalBasal,
+          kcalComidas,
+          kcalEjercicio,
+          total
+        };
       });
   });
 
@@ -200,7 +239,11 @@
       try {
         const [resComidas, resMetricas, resEjercicios] = await Promise.all([
           fetch(`${API_URL}/comidas?desde=${d}&hasta=${h}`),
-          fetch(`${API_URL}/metricas-ios?desde=${d}&hasta=${h}`),
+          // 30 dias de colchon hacia atras: son SOLO para comparar el peso del
+          // primer dia del mes contra el ultimo dia pesado (la flechita de
+          // subi/baje). Las filas de la tabla siguen acotadas a [desde, hasta]
+          // -- ver el filtro en `filas`.
+          fetch(`${API_URL}/metricas-ios?desde=${sumarDias(d, -30)}&hasta=${h}`),
           fetch(`${API_URL}/ejercicios?desde=${d}&hasta=${h}`)
         ]);
         if (!resComidas.ok) throw new Error(`HTTP ${resComidas.status}`);
@@ -277,6 +320,17 @@
                 <td class="col-peso">
                   {#if f.peso !== null}
                     <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.peso)}</a>
+                    {#if f.deltaPeso !== null && f.deltaPeso !== 0}
+                      <span
+                        class="delta-peso"
+                        class:baje={f.deltaPeso < 0}
+                        class:subi={f.deltaPeso > 0}
+                        title="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kg respecto al {formatoFecha(f.fechaPesoPrevio ?? '')}"
+                        aria-label="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kilos"
+                      >
+                        {f.deltaPeso < 0 ? '▼' : '▲'}
+                      </span>
+                    {/if}
                   {:else}
                     <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
                   {/if}
@@ -490,6 +544,26 @@
   .col-total.deficit {
     color: #166534;
     font-weight: 700;
+  }
+
+  /* Triangulito de tendencia junto al peso: verde hacia abajo si bajaste
+     respecto al ultimo dia pesado, rojo hacia arriba si subiste. Nada cuando
+     no cambio o cuando no hay dia previo con que comparar (el primer peso de
+     todos, o si te saltaste mas de 30 dias). Mismos verdes/rojos que ya usa
+     la columna de Total para deficit/superavit. */
+  .delta-peso {
+    margin-left: 0.3rem;
+    font-size: 0.62rem;
+    line-height: 1;
+    vertical-align: 1px;
+  }
+
+  .delta-peso.baje {
+    color: #16a34a;
+  }
+
+  .delta-peso.subi {
+    color: #dc2626;
   }
 
   /* Celda vacía (peso/basal/total sin dato): clicable → /peso?fecha=X para
