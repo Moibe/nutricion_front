@@ -321,7 +321,7 @@
             <th class="col-ejercicio"><span class="completo">Ejercicio (kcal)</span><span class="compacto">Ejerc.</span></th>
             <th class="col-total"><span class="completo">Total (kcal)</span><span class="compacto">Total</span></th>
             <th class="col-peso-sig">
-              <span class="completo">Peso día siguiente (kg)</span><span class="compacto">P. sig.</span>
+              <span class="completo">Peso sig. (kg)</span><span class="compacto">P. sig.</span>
             </th>
           </tr>
         </thead>
@@ -390,11 +390,15 @@
 </section>
 
 <style>
+  /* 720px se quedó corto al agregar la columna "Peso sig.": aunque su título
+     ya se acortó, sus datos (número + triangulito) siguen necesitando ~100px
+     más de los que sobraban -- sin este ajuste la tabla vuelve a necesitar
+     scroll horizontal aun con el título corto. */
   .registro-page {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
-    max-width: 720px;
+    max-width: 820px;
     margin: 0 auto;
     color: var(--ink);
   }
