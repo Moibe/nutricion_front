@@ -62,28 +62,6 @@
   let ejerciciosRaw = $state<EjercicioEntrada[]>([]);
   let perfil = $state<Perfil | null>(null);
 
-  // Posición vertical (px, relativa a .tabla-wrap) de la fila de hoy, para
-  // flotar las flechas AFUERA de .tabla-scroll (que sí necesita su propio
-  // overflow-x:auto para pantallas angostas) sobre el fondo de la página en
-  // vez de sobre el blanco de la tabla. Medido en vez de calculado a mano
-  // porque el alto real de una fila depende de fuente/renderizado del
-  // navegador. null mientras no hay fila de hoy que señalar.
-  let tablaWrapEl = $state<HTMLDivElement | null>(null);
-  let flechaTop = $state<number | null>(null);
-
-  $effect(() => {
-    filas;
-    if (!tablaWrapEl) return;
-    const filaHoy = tablaWrapEl.querySelector<HTMLTableRowElement>('tr.hoy');
-    if (!filaHoy) {
-      flechaTop = null;
-      return;
-    }
-    const filaRect = filaHoy.getBoundingClientRect();
-    const wrapRect = tablaWrapEl.getBoundingClientRect();
-    flechaTop = filaRect.top - wrapRect.top + filaRect.height / 2;
-  });
-
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
   // Corta (no el formato largo con día de semana): en una tabla, cada
@@ -293,77 +271,71 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
-    <div class="tabla-wrap" bind:this={tablaWrapEl}>
-      {#if flechaTop !== null}
-        <span class="hoy-flecha hoy-flecha-in" style="top: {flechaTop}px" aria-hidden="true">»</span>
-        <span class="hoy-flecha hoy-flecha-out" style="top: {flechaTop}px" aria-hidden="true">«</span>
-      {/if}
-      <div class="tabla-scroll">
-        <table class="tabla-registro">
-          <thead>
-            <tr>
-              <th class="col-fecha"><span class="completo">Fecha</span><span class="compacto">Día</span></th>
-              <th class="col-peso"><span class="completo">Peso (kg)</span><span class="compacto">Peso</span></th>
-              <th class="col-basal"><span class="completo">Basal (kcal)</span><span class="compacto">Basal</span></th>
-              <th class="col-comidas"><span class="completo">Comidas (kcal)</span><span class="compacto">Comida</span></th>
-              <th class="col-ejercicio"><span class="completo">Ejercicio (kcal)</span><span class="compacto">Ejerc.</span></th>
-              <th class="col-total"><span class="completo">Total (kcal)</span><span class="compacto">Total</span></th>
+    <div class="tabla-scroll">
+      <table class="tabla-registro">
+        <thead>
+          <tr>
+            <th class="col-fecha"><span class="completo">Fecha</span><span class="compacto">Día</span></th>
+            <th class="col-peso"><span class="completo">Peso (kg)</span><span class="compacto">Peso</span></th>
+            <th class="col-basal"><span class="completo">Basal (kcal)</span><span class="compacto">Basal</span></th>
+            <th class="col-comidas"><span class="completo">Comidas (kcal)</span><span class="compacto">Comida</span></th>
+            <th class="col-ejercicio"><span class="completo">Ejercicio (kcal)</span><span class="compacto">Ejerc.</span></th>
+            <th class="col-total"><span class="completo">Total (kcal)</span><span class="compacto">Total</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each filas as f (f.fecha)}
+            <tr class:hoy={f.fecha === hoyISO}>
+              <td class="col-fecha">
+                <span class="completo">{formatoFecha(f.fecha)}</span>
+                <span class="compacto">{formatoFechaCorto(f.fecha)}</span>
+              </td>
+              <td class="col-peso">
+                {#if f.peso !== null}
+                  <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.peso)}</a>
+                  {#if f.deltaPeso !== null && f.deltaPeso !== 0}
+                    <span
+                      class="delta-peso"
+                      class:baje={f.deltaPeso < 0}
+                      class:subi={f.deltaPeso > 0}
+                      title="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kg respecto al {formatoFecha(f.fechaPesoPrevio ?? '')}"
+                      aria-label="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kilos"
+                    >
+                      {f.deltaPeso < 0 ? '▼' : '▲'}
+                    </span>
+                  {/if}
+                {:else}
+                  <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                {/if}
+              </td>
+              <td class="col-basal">
+                {#if f.kcalBasal !== null}
+                  <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.kcalBasal)}</a>
+                {:else}
+                  <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                {/if}
+              </td>
+              <td class="col-comidas">
+                <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver/editar las comidas de este día">{fmt(f.kcalComidas)}</a>
+              </td>
+              <td class="col-ejercicio">
+                <a class="celda-link" href="/ejercicio?fecha={f.fecha}" title="Ver/editar el ejercicio de este día">{fmt(f.kcalEjercicio)}</a>
+              </td>
+              <td
+                class="col-total"
+                class:superavit={f.total !== null && f.total >= 0}
+                class:deficit={f.total !== null && f.total < 0}
+              >
+                {#if f.total !== null}
+                  <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver el día completo">{fmt(f.total)}</a>
+                {:else}
+                  <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
+                {/if}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each filas as f (f.fecha)}
-              <tr class:hoy={f.fecha === hoyISO}>
-                <td class="col-fecha">
-                  <span class="completo">{formatoFecha(f.fecha)}</span>
-                  <span class="compacto">{formatoFechaCorto(f.fecha)}</span>
-                </td>
-                <td class="col-peso">
-                  {#if f.peso !== null}
-                    <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.peso)}</a>
-                    {#if f.deltaPeso !== null && f.deltaPeso !== 0}
-                      <span
-                        class="delta-peso"
-                        class:baje={f.deltaPeso < 0}
-                        class:subi={f.deltaPeso > 0}
-                        title="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kg respecto al {formatoFecha(f.fechaPesoPrevio ?? '')}"
-                        aria-label="{f.deltaPeso < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(f.deltaPeso))} kilos"
-                      >
-                        {f.deltaPeso < 0 ? '▼' : '▲'}
-                      </span>
-                    {/if}
-                  {:else}
-                    <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
-                  {/if}
-                </td>
-                <td class="col-basal">
-                  {#if f.kcalBasal !== null}
-                    <a class="celda-link" href="/peso?fecha={f.fecha}" title="Ver/editar el peso de este día">{fmt(f.kcalBasal)}</a>
-                  {:else}
-                    <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
-                  {/if}
-                </td>
-                <td class="col-comidas">
-                  <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver/editar las comidas de este día">{fmt(f.kcalComidas)}</a>
-                </td>
-                <td class="col-ejercicio">
-                  <a class="celda-link" href="/ejercicio?fecha={f.fecha}" title="Ver/editar el ejercicio de este día">{fmt(f.kcalEjercicio)}</a>
-                </td>
-                <td
-                  class="col-total"
-                  class:superavit={f.total !== null && f.total >= 0}
-                  class:deficit={f.total !== null && f.total < 0}
-                >
-                  {#if f.total !== null}
-                    <a class="celda-link" href="/hoy?fecha={f.fecha}" title="Ver el día completo">{fmt(f.total)}</a>
-                  {:else}
-                    <a class="vacio" href="/peso?fecha={f.fecha}" title="Capturar peso de este día">—</a>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {/each}
+        </tbody>
+      </table>
     </div>
   {/if}
 </section>
@@ -448,15 +420,8 @@
     text-decoration: underline;
   }
 
-  /* .tabla-wrap es el contenedor SIN overflow ni fondo propio: ahí flotan
-     las flechas de "hoy", sobre el fondo translúcido de la página en vez del
-     blanco de la tabla. .tabla-scroll es quien recorta con overflow-x:auto
-     (pantallas angostas) y quien SÍ trae el fondo/borde/radius de la tabla —
-     al ser hermanas (no hijas de .tabla-scroll), las flechas no se recortan. */
-  .tabla-wrap {
-    position: relative;
-  }
-
+  /* Recorta con overflow-x:auto (pantallas angostas) y trae el fondo, borde
+     y radius de la tabla. */
   .tabla-scroll {
     overflow-x: auto;
     border-radius: 12px;
@@ -596,58 +561,6 @@
 
   .celda-link:hover {
     text-decoration: underline;
-  }
-
-  /* Mismo patrón que "subtab-arrow-indicator" en buzzword-agentes-ui: un
-     glifo que pulsa acercándose a lo que señala. `top` llega por JS (medido
-     contra la fila de hoy real, ver $effect arriba) porque el alto de fila
-     depende del navegador; `left`/`right` las sacan del todo de .tabla-scroll,
-     flotando sobre .tabla-wrap (fondo translúcido de la página, no blanco).
-     Negro (no volt): volt como texto/glifo sobre blanco casi no se ve. */
-  .hoy-flecha {
-    position: absolute;
-    display: inline-flex;
-    color: var(--ink);
-    font-weight: 900;
-    user-select: none;
-  }
-
-  /* Pegadas a la tabla, encimándose un poco: a -1.35rem quedaban a 15px del
-     borde de la pantalla en un teléfono, chiquitas y sobre el gris de la
-     página, donde se perdían. Así montan medio glifo sobre la fila de hoy
-     (negro sobre volt contrasta bien) y se despegan de la orilla. */
-  .hoy-flecha-in {
-    left: -0.5rem;
-    animation: hoy-flecha-in-pulso 1.2s ease-in-out infinite;
-  }
-
-  .hoy-flecha-out {
-    right: -0.5rem;
-    animation: hoy-flecha-out-pulso 1.2s ease-in-out infinite;
-  }
-
-  @keyframes hoy-flecha-in-pulso {
-    0%,
-    100% {
-      transform: translateY(-50%) translateX(0);
-      opacity: 0.8;
-    }
-    50% {
-      transform: translateY(-50%) translateX(4px);
-      opacity: 1;
-    }
-  }
-
-  @keyframes hoy-flecha-out-pulso {
-    0%,
-    100% {
-      transform: translateY(-50%) translateX(0);
-      opacity: 0.8;
-    }
-    50% {
-      transform: translateY(-50%) translateX(-4px);
-      opacity: 1;
-    }
   }
 
   /* Mismo breakpoint que Sidebar/TopNav/layout. Abajo de 768px la tabla
