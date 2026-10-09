@@ -140,12 +140,15 @@
       ...ejercicioPorDia.keys()
     ]);
 
-    // Hoy SIEMPRE aparece cuando el mes en pantalla es el actual, aunque
-    // todavía no tenga ningún dato capturado — si no, la fila (y las
-    // flechitas que la señalan) simplemente no existen hasta que captures
-    // algo, y "hoy" se vuelve invisible en la tabla apenas cambia el día.
-    if (hoyISO >= desde && hoyISO <= hasta) {
-      todasLasFechas.add(hoyISO);
+    // TODOS los días ya transcurridos del mes en pantalla aparecen como fila,
+    // tengan dato o no -- un día que se te olvidó capturar debe verse como un
+    // hueco vacío y obvio, no desaparecer de la tabla como si no hubiera
+    // existido. "Transcurrido" llega hasta hoy si el mes en pantalla es el
+    // actual (un día que aún no pasa no tiene nada que mostrar todavía); si es
+    // un mes ya cerrado, son los 28-31 días completos.
+    const ultimoDiaAMostrar = hasta < hoyISO ? hasta : hoyISO;
+    for (let dia = desde; dia <= ultimoDiaAMostrar; dia = sumarDias(dia, 1)) {
+      todasLasFechas.add(dia);
     }
 
     // Fechas pesadas en orden ascendente, para poder buscar "el ultimo dia
