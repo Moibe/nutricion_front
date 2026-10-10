@@ -300,17 +300,30 @@
   {:else}
     <div class="tabla-scroll">
       {#snippet trianguloPeso(delta: number | null, fechaPrevio: string | null)}
-        {#if delta !== null && delta !== 0}
-          <span
-            class="delta-peso"
-            class:baje={delta < 0}
-            class:subi={delta > 0}
-            title="{delta < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(delta))} kg respecto al {formatoFecha(fechaPrevio ?? '')}"
-            aria-label="{delta < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(delta))} kilos"
-          >
-            {delta < 0 ? '▼' : '▲'}
-            <span class="delta-cifra">({fmt(Math.abs(delta))})</span>
-          </span>
+        {#if delta !== null}
+          {#if delta === 0}
+            <!-- Sin cambio: por simetría con las demás filas también se
+                 muestra "(0)", sin triángulo (no hay dirección que señalar) y
+                 en gris neutral -- ni "bien" ni "mal" como bajar/subir. -->
+            <span
+              class="delta-igual"
+              title="No cambiaste de peso respecto al {formatoFecha(fechaPrevio ?? '')}"
+              aria-label="Sin cambio de peso"
+            >
+              ({fmt(0)})
+            </span>
+          {:else}
+            <span
+              class="delta-peso"
+              class:baje={delta < 0}
+              class:subi={delta > 0}
+              title="{delta < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(delta))} kg respecto al {formatoFecha(fechaPrevio ?? '')}"
+              aria-label="{delta < 0 ? 'Bajaste' : 'Subiste'} {fmt(Math.abs(delta))} kilos"
+            >
+              {delta < 0 ? '▼' : '▲'}
+              <span class="delta-cifra">({fmt(Math.abs(delta))})</span>
+            </span>
+          {/if}
         {/if}
       {/snippet}
 
@@ -572,9 +585,9 @@
 
   /* Triangulito de tendencia junto al peso: verde hacia abajo si bajaste
      respecto al ultimo dia pesado, rojo hacia arriba si subiste. Nada cuando
-     no cambio o cuando no hay dia previo con que comparar (el primer peso de
-     todos, o si te saltaste mas de 30 dias). Mismos verdes/rojos que ya usa
-     la columna de Total para deficit/superavit. */
+     no hay dia previo con que comparar (el primer peso de todos, o si te
+     saltaste mas de 30 dias) -- "sin cambio" SÍ se muestra, ver .delta-igual.
+     Mismos verdes/rojos que ya usa la columna de Total para deficit/superavit. */
   .delta-peso {
     margin-left: 0.3rem;
     font-size: 0.62rem;
@@ -587,6 +600,16 @@
   .delta-cifra {
     font-size: 0.78rem;
     margin-left: 0.1rem;
+  }
+
+  /* "(0)" cuando el peso quedó exactamente igual: mismo tamaño de lectura que
+     .delta-cifra (no el chiquito de .delta-peso, que es del tamaño del
+     triángulo), pero sin triángulo -- no hay dirección que señalar -- y en
+     gris neutral, no verde ni rojo, porque no es ni "bien" ni "mal". */
+  .delta-igual {
+    margin-left: 0.3rem;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
   }
 
   /* Los hex viven en +layout.svelte: el filtro de daltonismo del usuario
