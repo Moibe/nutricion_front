@@ -183,6 +183,7 @@
           {:else}
             Describe el platillo y te voy preguntando lo que falte; al terminar, lo guardas en esta tarjeta.
           {/if}
+          Sé lo más específico posible.
         </p>
       </div>
       <button type="button" class="mf-cerrar" onclick={onCerrar} disabled={guardando} aria-label="Cerrar" title="Cerrar (Esc)">
