@@ -18,6 +18,7 @@
   //   ACTUALIZA esa fila en vez de crear una nueva.
   import { tick } from 'svelte';
   import { env } from '$env/dynamic/public';
+  import type { MuyFrecuente } from '$lib/muyFrecuentes';
 
   type Macros = { kilocalorias: number; proteinas: number; carbohidratos: number; grasas: number };
   type ResultadoGuardado = { id: number; conversation_id: string; platillo: string | null } & Macros;
@@ -43,7 +44,11 @@
     onGuardado,
     preConversationId = null,
     preResultado = null,
-    contextoHermanos = null
+    contextoHermanos = null,
+    muyFrecuentes = null,
+    onAbrirMuyFrecuente,
+    onElegirResultado,
+    etiquetaElegir = 'Guardar'
   }: {
     comidaId?: number | null;
     mostrarTitulo?: boolean;
@@ -63,6 +68,19 @@
     // usuario puede aludir a uno anterior ("del tamaño de las gotitas de
     // chocolate") sin repetir la descripción completa.
     contextoHermanos?: string | null;
+    // Tarjetas "Muy frecuentes" (4 posiciones; null = vacía). Solo se dibujan si
+    // el padre manda las dos cosas: la lista y qué hacer al tocar una vacía
+    // (abrir el modal de creación) o el lápiz de una llena (reemplazarla).
+    muyFrecuentes?: (MuyFrecuente | null)[] | null;
+    onAbrirMuyFrecuente?: (slot: number) => void;
+    // Modo "elegir resultado" (lo usa el modal de creación de un Muy frecuente):
+    // en vez del "Guardar" que registra un consumo de hoy, la burbuja de
+    // resultado ofrece un solo botón (etiquetaElegir) que llama a esto con el
+    // platillo ya calculado. Si lanza, el error se muestra junto al botón. En
+    // este modo se apagan los atajos de comida (frecuentes, "No comí nada",
+    // captura manual): no hay comida a la que colgar nada.
+    onElegirResultado?: (r: Macros & { platillo: string }) => Promise<void> | void;
+    etiquetaElegir?: string;
   } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
@@ -252,7 +270,14 @@
   let guardandoManual = $state(false);
   let manualError = $state<string | null>(null);
 
+  // Tarjeta Muy frecuente que se está usando / resultado que se está eligiendo
+  // (para deshabilitar y atenuar mientras viaja el guardado).
+  let usandoMuyFrecuenteSlot = $state<number | null>(null);
+  let eligiendoIdx = $state<number | null>(null);
+
   $effect(() => {
+    // En modo elegir-resultado no se usan los frecuentes: ni se piden.
+    if (onElegirResultado) return;
     (async () => {
       try {
         const res = await fetch(`${API_URL}/favoritos`);
@@ -484,6 +509,78 @@
             : String(e);
     } finally {
       guardandoNada = false;
+    }
+  }
+
+  // Modo elegir-resultado: entrega el platillo de la burbuja `i` al padre (el
+  // modal lo guarda en su tarjeta). Un error del padre se muestra con el mismo
+  // aviso de guardado de siempre.
+  async function elegirResultado(i: number, r: Respuesta) {
+    if (!onElegirResultado || eligiendoIdx !== null || !r.platillo) return;
+    const m = macros(r);
+    if (!m) return;
+    eligiendoIdx = i;
+    saveError = null;
+    try {
+      await onElegirResultado({ platillo: r.platillo, ...m });
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      eligiendoIdx = null;
+    }
+  }
+
+  // Usar una tarjeta Muy frecuente: igual que usarFavorito -- salta la IA, POST
+  // directo a /consumos con las macros ya guardadas, conversation_id sintético
+  // y único (cada toque es un consumo nuevo, no una edición) y el panel se
+  // queda abierto para tocar otra enseguida.
+  async function usarMuyFrecuente(mf: MuyFrecuente) {
+    if (usandoMuyFrecuenteSlot !== null || comidaId == null) return;
+    usandoMuyFrecuenteSlot = mf.slot;
+    saveError = null;
+    try {
+      const cid = crypto.randomUUID();
+      const res = await fetch(`${API_URL}/consumos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: cid,
+          comida_id: comidaId,
+          platillo: mf.nombre,
+          kilocalorias: mf.kilocalorias,
+          proteinas: mf.proteinas,
+          carbohidratos: mf.carbohidratos,
+          grasas: mf.grasas
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { id: number };
+      onGuardado?.(
+        {
+          id: data.id,
+          conversation_id: cid,
+          platillo: mf.nombre,
+          kilocalorias: mf.kilocalorias ?? 0,
+          proteinas: mf.proteinas ?? 0,
+          carbohidratos: mf.carbohidratos ?? 0,
+          grasas: mf.grasas ?? 0
+        },
+        { mantenerAbierto: true }
+      );
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      usandoMuyFrecuenteSlot = null;
     }
   }
 
@@ -756,18 +853,54 @@
           <span class="nada-hint">Queda en 0 kcal y la comida se marca como capturada.</span>
         </div>
       {/if}
-      <!-- Un escalón arriba de "Tus frecuentes": siempre presentes (a
-           diferencia de esas, que solo aparecen si ya guardaste alguna), para
-           los 4-5 platillos que comes casi todos los días. Por ahora vacías
-           -- el contenido (y poder llenarlas) llega después. -->
-      <div class="empty muy-frecuentes-wrap">
-        <span class="muy-frecuentes-label">Muy frecuentes</span>
-        <div class="muy-frecuentes-grid">
-          {#each Array(4) as _, i (i)}
-            <div class="muy-frecuente-card" aria-hidden="true"></div>
-          {/each}
+      <!-- Un escalón arriba de "Tus frecuentes": 4 tarjetas fijas, siempre
+           presentes (a diferencia de esas, que solo aparecen si ya guardaste
+           alguna), para los platillos que comes casi todos los días. Vacía =
+           al tocarla abre el modal de creación (prompteador de IA). Llena = al
+           tocarla se agrega como consumo, sin IA; el lápiz la reemplaza. -->
+      {#if comidaId != null && muyFrecuentes && onAbrirMuyFrecuente}
+        <div class="empty muy-frecuentes-wrap">
+          <span class="muy-frecuentes-label">Muy frecuentes</span>
+          <div class="muy-frecuentes-grid">
+            {#each muyFrecuentes as mf, slot (slot)}
+              {#if mf}
+                <div class="muy-frecuente-card llena" class:usando={usandoMuyFrecuenteSlot === slot}>
+                  <button
+                    type="button"
+                    class="mf-usar"
+                    onclick={() => usarMuyFrecuente(mf)}
+                    disabled={usandoMuyFrecuenteSlot !== null}
+                    title={`Agregar ${mf.nombre} a esta comida`}
+                  >
+                    <span class="mf-nombre">{mf.nombre}</span>
+                    <span class="mf-kcal">{fmt(mf.kilocalorias ?? 0)} kcal</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="mf-editar"
+                    onclick={() => onAbrirMuyFrecuente(slot)}
+                    aria-label={`Reemplazar Muy frecuente ${slot + 1} (${mf.nombre})`}
+                    title="Reemplazar esta tarjeta"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+                </div>
+              {:else}
+                <button
+                  type="button"
+                  class="muy-frecuente-card vacia"
+                  onclick={() => onAbrirMuyFrecuente(slot)}
+                  aria-label={`Crear Muy frecuente ${slot + 1}`}
+                  title="Crear Muy frecuente"
+                ></button>
+              {/if}
+            {/each}
+          </div>
         </div>
-      </div>
+      {/if}
 
       {#if favoritos.length > 0}
         <div class="empty favoritos-wrap">
@@ -876,6 +1009,24 @@
               </div>
             </div>
 
+            {#if onElegirResultado}
+              <div class="save-row">
+                {#if turn.respuesta.platillo}
+                  <button
+                    type="button"
+                    class="save-btn"
+                    onclick={() => elegirResultado(i, turn.respuesta)}
+                    disabled={eligiendoIdx !== null}
+                  >
+                    {eligiendoIdx === i ? 'Guardando…' : etiquetaElegir}
+                  </button>
+                {:else}
+                  <!-- Un Muy frecuente necesita nombre; el guardado normal acepta platillo
+                       null, este no -- mejor avisarlo que dejar un botón que no hace nada. -->
+                  <span class="nada-hint">El asistente no dio un nombre para el platillo: dime cómo se llama y recalculo.</span>
+                {/if}
+              </div>
+            {:else}
             <div class="save-row">
               {#if savedIdx.has(i)}
                 <span class="saved">Guardado ✓</span>
@@ -904,6 +1055,7 @@
                 </button>
               {/if}
             </div>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -1151,13 +1303,124 @@
     margin: 0 auto;
   }
 
-  /* Vacía por ahora: solo el hueco con su borde punteado, a la espera de
-     contenido (ver comentario en el markup). */
   .muy-frecuente-card {
+    position: relative;
     aspect-ratio: 1;
-    border: 1px dashed var(--line);
     border-radius: 10px;
+    min-width: 0;
+  }
+
+  /* Vacía: el hueco con su borde punteado (el look ya aprobado). Ahora es un
+     <button>, así que se le quitan los estilos nativos y se le da respuesta al
+     pasar el mouse / enfocar con teclado, que es lo que avisa que se puede
+     tocar. */
+  .muy-frecuente-card.vacia {
+    padding: 0;
+    border: 1px dashed var(--line);
     background: rgba(15, 23, 42, 0.02);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+
+  .muy-frecuente-card.vacia:hover,
+  .muy-frecuente-card.vacia:focus-visible {
+    border-style: solid;
+    border-color: var(--ink);
+    background: var(--volt);
+    outline: none;
+  }
+
+  /* Llena: borde sólido y blanca, para que se distinga de un vistazo de las
+     vacías. El botón principal ocupa toda la tarjeta; el lápiz va aparte,
+     flotando en la esquina (dos <button> no pueden anidarse). */
+  .muy-frecuente-card.llena {
+    border: 1px solid var(--line);
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .muy-frecuente-card.llena.usando {
+    opacity: 0.6;
+  }
+
+  .mf-usar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.3rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.6rem 0.65rem;
+    box-sizing: border-box;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.18s ease;
+  }
+
+  .mf-usar:hover:not(:disabled),
+  .mf-usar:focus-visible {
+    background: var(--volt);
+    outline: none;
+  }
+
+  .mf-usar:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Hasta 3 renglones y luego puntos suspensivos: el nombre completo viaja en
+     el title del botón. */
+  .mf-nombre {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding-right: 1.3rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-kcal {
+    flex-shrink: 0;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--volt);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .mf-editar {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(15, 23, 42, 0.4);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+
+  .mf-editar:hover,
+  .mf-editar:focus-visible {
+    background: var(--ink);
+    color: #ffffff;
+    outline: none;
   }
 
   .favoritos-wrap {
@@ -1657,6 +1920,16 @@
 
     .send {
       flex: 1;
+    }
+  }
+
+  /* En un teléfono, 4 en fila dejan cuadritos de ~53px: bien como huecos
+     vacíos, pero ya llenos no cabe ni el nombre. 2 x 2 los deja de ~140px (y
+     de un tamaño cómodo para el dedo). */
+  @media (max-width: 560px) {
+    .muy-frecuentes-grid {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 100%;
     }
   }
 </style>

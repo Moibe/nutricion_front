@@ -48,5 +48,8 @@ async function proxiar({ params, request, url, locals }: RequestEvent): Promise<
 
 export const GET: RequestHandler = (event) => proxiar(event);
 export const POST: RequestHandler = (event) => proxiar(event);
+// PUT: lo usa PUT /muy-frecuentes/{slot} (upsert por posición). Sin esto el
+// browser recibía un 405 de SvelteKit y la request ni llegaba a la API.
+export const PUT: RequestHandler = (event) => proxiar(event);
 export const PATCH: RequestHandler = (event) => proxiar(event);
 export const DELETE: RequestHandler = (event) => proxiar(event);

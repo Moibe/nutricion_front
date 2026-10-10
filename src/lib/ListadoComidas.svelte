@@ -21,6 +21,8 @@
   import { tick } from 'svelte';
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
+  import MuyFrecuenteModal from '$lib/MuyFrecuenteModal.svelte';
+  import { slotsDesde, SLOTS_MUY_FRECUENTES, type MuyFrecuente } from '$lib/muyFrecuentes';
 
   let {
     soloHoy = false,
@@ -590,6 +592,35 @@
   type Perfil = { fecha_nacimiento: string; estatura_cm: number; sexo: 'hombre' | 'mujer' };
   let perfil = $state<Perfil | null>(null);
 
+  // "Muy frecuentes": 4 tarjetas fijas por usuario. Las posiciones arrancan
+  // vacías y se llenan con GET /muy-frecuentes; vive aquí (y no en el chat)
+  // porque el modal de creación también es de este componente: así hay UN solo
+  // dueño del estado y la tarjeta se actualiza sola al guardar. Best-effort:
+  // si el fetch falla, simplemente se ven vacías.
+  let muyFrecuentes = $state<(MuyFrecuente | null)[]>(slotsDesde([]));
+  // Slot cuyo modal de creación está abierto (null = cerrado).
+  let slotModalMuyFrecuente = $state<number | null>(null);
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/muy-frecuentes`);
+        if (res.ok) muyFrecuentes = slotsDesde((await res.json()) as MuyFrecuente[]);
+      } catch {
+        // Best-effort: ver arriba.
+      }
+    })();
+  });
+
+  function onMuyFrecuenteGuardado(mf: MuyFrecuente) {
+    if (mf.slot >= 0 && mf.slot < SLOTS_MUY_FRECUENTES) {
+      muyFrecuentes = muyFrecuentes.map((actual, i) => (i === mf.slot ? mf : actual));
+    }
+    // Solo cierra SU modal: si mientras viajaba el PUT se abrió el de otra
+    // tarjeta, la respuesta tardía no debe cerrárselo.
+    if (slotModalMuyFrecuente === mf.slot) slotModalMuyFrecuente = null;
+  }
+
   $effect(() => {
     (async () => {
       try {
@@ -1057,6 +1088,8 @@
                 comidaId={c.id}
                 mostrarTitulo={false}
                 contextoHermanos={resumenHermanos(c)}
+                {muyFrecuentes}
+                onAbrirMuyFrecuente={(slot) => (slotModalMuyFrecuente = slot)}
                 onGuardado={(r, opciones) => onConsumoGuardado(c.id, r, opciones)}
               />
             </div>
@@ -1065,6 +1098,15 @@
         </div>
       {/each}
     </div>
+  {/if}
+
+  {#if slotModalMuyFrecuente !== null}
+    <MuyFrecuenteModal
+      slot={slotModalMuyFrecuente}
+      actual={muyFrecuentes[slotModalMuyFrecuente]}
+      onCerrar={() => (slotModalMuyFrecuente = null)}
+      onGuardado={onMuyFrecuenteGuardado}
+    />
   {/if}
 </section>
 
