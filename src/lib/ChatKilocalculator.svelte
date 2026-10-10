@@ -909,8 +909,10 @@
     gap: 0.5rem;
     /* Un poco más angostas que el ancho completo del chat -- se achican sin
        dejar de ser 4 cuadros iguales en fila ni de ajustarse al ancho de
-       pantalla (mobile incluido). */
+       pantalla (mobile incluido). Centradas (no pegadas a la izquierda) con
+       el margin:auto que deja ese 80% sobrante repartido en ambos lados. */
     max-width: 80%;
+    margin: 0 auto;
   }
 
   /* Vacía por ahora: solo el hueco con su borde punteado, a la espera de
