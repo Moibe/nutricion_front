@@ -239,6 +239,19 @@
   let favoritosAbiertos = $state(false);
   let guardandoNada = $state(false);
 
+  // Captura manual (sin IA): para cuando ya sabes cuántas kcal tiene lo que
+  // comiste -- una etiqueta, una app, un cálculo propio. Mismo espíritu que el
+  // formulario de /ejercicio: campos + Guardar, directo a la base. Los campos
+  // numéricos son number | '' porque bind:value en <input type="number">
+  // guarda un NÚMERO (o '' si está vacío), no texto.
+  let manualPlatillo = $state('');
+  let manualKcal = $state<number | ''>('');
+  let manualProt = $state<number | ''>('');
+  let manualCarb = $state<number | ''>('');
+  let manualGrasa = $state<number | ''>('');
+  let guardandoManual = $state(false);
+  let manualError = $state<string | null>(null);
+
   $effect(() => {
     (async () => {
       try {
@@ -474,6 +487,92 @@
     }
   }
 
+  // Valida un campo numérico opcional (macros): vacío = 0, y si trae algo debe
+  // ser un número >= 0. null = inválido. "0" es un valor legítimo aquí, por
+  // eso se compara contra '' y no con !valor (0 es falsy en JS).
+  function numeroOpcional(v: number | ''): number | null {
+    if (v === '' || v === null || v === undefined) return 0;
+    const n = Number(v);
+    return Number.isNaN(n) || n < 0 ? null : n;
+  }
+
+  // Guardar lo capturado a mano: salta la IA por completo (no gasta tokens),
+  // POST directo a /consumos. Mismo criterio que usarFavorito/registrarNada:
+  // conversation_id sintético y único porque el back hace upsert por ese
+  // campo y cada guardado es un consumo nuevo; y mantenerAbierto porque se
+  // espera repetir seguido (varios platillos de una misma comida).
+  async function guardarManual() {
+    if (guardandoManual || comidaId == null) return;
+    const platillo = manualPlatillo.trim();
+    if (!platillo) {
+      manualError = 'Escribe qué comiste.';
+      return;
+    }
+    if (manualKcal === '' || manualKcal === null || manualKcal === undefined) {
+      manualError = 'Ingresa las kcal.';
+      return;
+    }
+    const kcal = Number(manualKcal);
+    if (Number.isNaN(kcal) || kcal < 0) {
+      manualError = 'Ingresa un número de kcal válido.';
+      return;
+    }
+    const prot = numeroOpcional(manualProt);
+    const carb = numeroOpcional(manualCarb);
+    const grasa = numeroOpcional(manualGrasa);
+    if (prot === null || carb === null || grasa === null) {
+      manualError = 'Los macros deben ser números de 0 en adelante (o déjalos vacíos).';
+      return;
+    }
+
+    guardandoManual = true;
+    manualError = null;
+    try {
+      const cid = crypto.randomUUID();
+      const res = await fetch(`${API_URL}/consumos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: cid,
+          comida_id: comidaId,
+          platillo,
+          kilocalorias: kcal,
+          proteinas: prot,
+          carbohidratos: carb,
+          grasas: grasa
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { id: number };
+      manualPlatillo = '';
+      manualKcal = '';
+      manualProt = '';
+      manualCarb = '';
+      manualGrasa = '';
+      onGuardado?.(
+        {
+          id: data.id,
+          conversation_id: cid,
+          platillo,
+          kilocalorias: kcal,
+          proteinas: prot,
+          carbohidratos: carb,
+          grasas: grasa
+        },
+        { mantenerAbierto: true }
+      );
+    } catch (e) {
+      manualError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      guardandoManual = false;
+    }
+  }
+
   // Usar un favorito: salta la IA por completo, POST directo a /consumos con
   // las macros ya guardadas. conversation_id se sintetiza aquí mismo (no hay
   // conversación real de por medio) — tiene que ser único porque el back
@@ -555,6 +654,77 @@
 </script>
 
 <section class="chat">
+  <!-- Captura directa, sin IA: arriba de "nueva conversación". Solo con una
+       comida a la que colgar el consumo (comidaId) y mientras no haya una
+       conversación en curso -- igual que "No comí nada" y los frecuentes, que
+       son los otros atajos que se saltan la IA. -->
+  {#if comidaId != null && turns.length === 0}
+    <div class="manual">
+      <div class="manual-fila">
+        <label class="manual-campo manual-platillo">
+          <span>Platillo</span>
+          <input
+            type="text"
+            placeholder="Ej. Barrita de avena"
+            bind:value={manualPlatillo}
+            onkeydown={(e) => e.key === 'Enter' && guardarManual()}
+          />
+        </label>
+        <label class="manual-campo manual-num">
+          <span>Kcal</span>
+          <input
+            type="number"
+            inputmode="decimal"
+            step="1"
+            min="0"
+            placeholder="150"
+            bind:value={manualKcal}
+            onkeydown={(e) => e.key === 'Enter' && guardarManual()}
+          />
+        </label>
+        <label class="manual-campo manual-num">
+          <span>Prot (g)</span>
+          <input
+            type="number"
+            inputmode="decimal"
+            step="0.1"
+            min="0"
+            bind:value={manualProt}
+            onkeydown={(e) => e.key === 'Enter' && guardarManual()}
+          />
+        </label>
+        <label class="manual-campo manual-num">
+          <span>Carb (g)</span>
+          <input
+            type="number"
+            inputmode="decimal"
+            step="0.1"
+            min="0"
+            bind:value={manualCarb}
+            onkeydown={(e) => e.key === 'Enter' && guardarManual()}
+          />
+        </label>
+        <label class="manual-campo manual-num">
+          <span>Grasa (g)</span>
+          <input
+            type="number"
+            inputmode="decimal"
+            step="0.1"
+            min="0"
+            bind:value={manualGrasa}
+            onkeydown={(e) => e.key === 'Enter' && guardarManual()}
+          />
+        </label>
+        <button type="button" class="send" onclick={guardarManual} disabled={guardandoManual}>
+          {guardandoManual ? 'Guardando…' : 'Guardar'}
+        </button>
+      </div>
+      {#if manualError}
+        <div class="error">⚠️ {manualError}</div>
+      {/if}
+    </div>
+  {/if}
+
   <header class="chat-head">
     {#if mostrarTitulo}
       <div>
@@ -818,6 +988,72 @@
     max-width: 760px;
     margin: 0 auto;
     color: rgba(15, 23, 42, 0.9);
+  }
+
+  /* Captura manual (sin IA). Mismo lenguaje que el formulario de /ejercicio:
+     etiqueta chica arriba de cada campo, Guardar en volt a la derecha. */
+  .manual-fila {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .manual-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .manual-campo > span {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  .manual-platillo {
+    flex: 2;
+    min-width: 160px;
+  }
+
+  .manual-num {
+    flex: 0 0 76px;
+  }
+
+  .manual-campo input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.95rem;
+  }
+
+  .manual-campo input:focus {
+    outline: none;
+    border-color: var(--ink);
+  }
+
+  /* Campos angostos: sin flechitas de spinner, que solo apachurran el número
+     (mismo criterio que el campo de kcal de /ejercicio). */
+  .manual-num input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .manual-num input::-webkit-outer-spin-button,
+  .manual-num input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .manual-fila > .send {
+    padding: 0.6rem 1.2rem;
   }
 
   .chat-head {
