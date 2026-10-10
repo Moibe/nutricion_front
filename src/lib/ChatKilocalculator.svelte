@@ -586,6 +586,19 @@
           <span class="nada-hint">Queda en 0 kcal y la comida se marca como capturada.</span>
         </div>
       {/if}
+      <!-- Un escalón arriba de "Tus frecuentes": siempre presentes (a
+           diferencia de esas, que solo aparecen si ya guardaste alguna), para
+           los 4-5 platillos que comes casi todos los días. Por ahora vacías
+           -- el contenido (y poder llenarlas) llega después. -->
+      <div class="empty muy-frecuentes-wrap">
+        <span class="muy-frecuentes-label">Muy frecuentes</span>
+        <div class="muy-frecuentes-grid">
+          {#each Array(4) as _, i (i)}
+            <div class="muy-frecuente-card" aria-hidden="true"></div>
+          {/each}
+        </div>
+      </div>
+
       {#if favoritos.length > 0}
         <div class="empty favoritos-wrap">
           <button
@@ -876,6 +889,33 @@
   .empty {
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.9rem;
+  }
+
+  .muy-frecuentes-wrap {
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .muy-frecuentes-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  .muy-frecuentes-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+
+  /* Vacía por ahora: solo el hueco con su borde punteado, a la espera de
+     contenido (ver comentario en el markup). */
+  .muy-frecuente-card {
+    aspect-ratio: 1;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.02);
   }
 
   .favoritos-wrap {
