@@ -907,6 +907,10 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0.5rem;
+    /* Un poco más angostas que el ancho completo del chat -- se achican sin
+       dejar de ser 4 cuadros iguales en fila ni de ajustarse al ancho de
+       pantalla (mobile incluido). */
+    max-width: 80%;
   }
 
   /* Vacía por ahora: solo el hueco con su borde punteado, a la espera de
