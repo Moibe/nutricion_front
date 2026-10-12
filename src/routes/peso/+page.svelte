@@ -11,6 +11,7 @@
   // "Peso Hoy"), se comporta igual que siempre: hoy.
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
+  import { goto } from '$app/navigation';
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
@@ -216,6 +217,10 @@
         throw new Error(extraerError(detalle, `HTTP ${res.status}`));
       }
       guardado = true;
+      // Guardado el peso, de regreso a Registro Diario: es donde se ve su efecto
+      // (el día, el triangulito de subió/bajó y el basal). Se recarga solo al
+      // montarse, así que ya trae el peso recién guardado.
+      await goto('/registro-diario');
     } catch (e) {
       error =
         e instanceof TypeError
