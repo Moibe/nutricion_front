@@ -11,7 +11,7 @@
   import { onMount, tick } from 'svelte';
   import { env } from '$env/dynamic/public';
   import ChatKilocalculator from '$lib/ChatKilocalculator.svelte';
-  import type { MuyFrecuente } from '$lib/muyFrecuentes';
+  import { putMuyFrecuente, type MuyFrecuente } from '$lib/muyFrecuentes';
 
   let {
     slot,
@@ -70,31 +70,15 @@
   }
 
   async function guardarEnApi(r: ResultadoElegido) {
-    const res = await fetch(`${API_URL}/muy-frecuentes/${slot}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    onGuardado(
+      await putMuyFrecuente(API_URL, slot, {
         nombre: r.platillo,
         kilocalorias: r.kilocalorias,
         proteinas: r.proteinas,
         carbohidratos: r.carbohidratos,
         grasas: r.grasas
       })
-    });
-    if (!res.ok) {
-      let detalle = `HTTP ${res.status}`;
-      try {
-        const j = (await res.json()) as { detail?: unknown };
-        if (typeof j.detail === 'string') detalle = j.detail;
-        else if (Array.isArray(j.detail) && j.detail[0] && typeof j.detail[0] === 'object' && 'msg' in j.detail[0]) {
-          detalle = String((j.detail[0] as { msg: unknown }).msg);
-        }
-      } catch {
-        // sin cuerpo JSON: se queda el HTTP <status>
-      }
-      throw new Error(detalle);
-    }
-    onGuardado((await res.json()) as MuyFrecuente);
+    );
   }
 
   const SELECTOR_FOCO =

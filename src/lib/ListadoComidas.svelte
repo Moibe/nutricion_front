@@ -1090,6 +1090,7 @@
                 contextoHermanos={resumenHermanos(c)}
                 {muyFrecuentes}
                 onAbrirMuyFrecuente={(slot) => (slotModalMuyFrecuente = slot)}
+                onMuyFrecuenteGuardado={onMuyFrecuenteGuardado}
                 onGuardado={(r, opciones) => onConsumoGuardado(c.id, r, opciones)}
               />
             </div>
