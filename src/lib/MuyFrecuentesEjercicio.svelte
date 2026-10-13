@@ -206,6 +206,9 @@
   .muy-frecuentes-label {
     display: block;
     margin-bottom: 0.4rem;
+    /* Dentro del chat heredaba 0.9rem del wrapper .empty; aquí no hay tal
+       wrapper, así que se fija para no salir más grande que en Alimentación. */
+    font-size: 0.9rem;
     color: rgba(15, 23, 42, 0.6);
   }
 

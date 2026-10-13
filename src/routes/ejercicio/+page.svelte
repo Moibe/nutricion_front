@@ -418,6 +418,7 @@
           mostrarTitulo={false}
           {contextoHermanos}
           {pesoKg}
+          hayMuyFrecuentes={muyFrecuentes !== null}
           onGuardado={onGuardadoChat}
         />
       </div>

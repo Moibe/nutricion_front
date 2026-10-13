@@ -32,6 +32,7 @@
     preResultado = null,
     contextoHermanos = null,
     pesoKg = null,
+    hayMuyFrecuentes = false,
     onElegirResultado,
     etiquetaElegir = 'Guardar'
   }: {
@@ -58,6 +59,11 @@
     // en el primer turno para que el asistente no lo tenga que preguntar.
     // A diferencia de contextoHermanos, SÍ aplica también al editar.
     pesoKg?: number | null;
+    // ¿La página está mostrando la rejilla de Muy frecuentes? La rejilla vive
+    // afuera, así que este chat no puede saberlo solo -- y sin esto el chip
+    // invitaría a arrastrarlo a un destino que no existe (p. ej. si la API de
+    // muy-frecuentes-ejercicio no responde).
+    hayMuyFrecuentes?: boolean;
     // Modo elegir-resultado: en vez del Guardar que registra el ejercicio del
     // día, cada resultado ofrece un solo botón (etiquetaElegir) que entrega el
     // concepto y las kcal al padre — lo usa el modal de Muy frecuentes.
@@ -391,11 +397,6 @@
     }
   }
 
-  // Usar un favorito: salta la IA por completo, POST directo a
-  // /ejercicios/chat con las kcal ya guardadas. conversation_id se sintetiza
-  // aquí mismo (no hay conversación real de por medio) — tiene que ser único
-  // porque el back hace upsert por ese campo, y cada tap es una entrada
-  // nueva, no una edición.
   function alIniciarArrastre(e: DragEvent, fav: Favorito) {
     if (!e.dataTransfer) return;
     // Los datos van DENTRO del arrastre (no solo el id) porque quien recibe es
@@ -428,6 +429,11 @@
     }
   }
 
+  // Usar un favorito: salta la IA por completo, POST directo a
+  // /ejercicios/chat con las kcal ya guardadas. conversation_id se sintetiza
+  // aquí mismo (no hay conversación real de por medio) — tiene que ser único
+  // porque el back hace upsert por ese campo, y cada tap es una entrada
+  // nueva, no una edición.
   async function usarFavorito(fav: Favorito) {
     if (usandoFavoritoId !== null) return;
     usandoFavoritoId = fav.id;
@@ -550,13 +556,14 @@
           <div class="favoritos-list">
             {#each favoritos as fav (fav.id)}
               <span
-                class="favorito-chip arrastrable"
+                class="favorito-chip"
                 class:usando={usandoFavoritoId === fav.id}
+                class:arrastrable={hayMuyFrecuentes}
                 role="group"
                 aria-label={`Frecuente: ${fav.nombre}`}
-                draggable="true"
+                draggable={hayMuyFrecuentes}
                 ondragstart={(e) => alIniciarArrastre(e, fav)}
-                title="Arrástralo a una tarjeta de Muy frecuentes"
+                title={hayMuyFrecuentes ? 'Arrástralo a una tarjeta de Muy frecuentes' : undefined}
               >
                 <button
                   type="button"
@@ -814,6 +821,13 @@
   .empty {
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.9rem;
+  }
+
+  /* Aviso cuando el resultado no trae nombre, en modo elegir. (Vive aquí y no
+     con la rejilla: lo pinta este chat, dentro del modal.) */
+  .mf-aviso {
+    font-size: 0.78rem;
+    color: rgba(15, 23, 42, 0.6);
   }
 
   /* El chip se puede arrastrar a una tarjeta de Muy frecuentes (que vive en la
