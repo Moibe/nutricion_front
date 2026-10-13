@@ -14,6 +14,7 @@
   import { page } from '$app/state';
   import ChatEjercicio from '$lib/ChatEjercicio.svelte';
   import MuyFrecuenteEjercicioModal from '$lib/MuyFrecuenteEjercicioModal.svelte';
+  import MuyFrecuentesEjercicio from '$lib/MuyFrecuentesEjercicio.svelte';
   import { slotsDesde, type MuyFrecuenteEjercicio } from '$lib/muyFrecuentes';
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
@@ -398,6 +399,14 @@
       </div>
     </div>
 
+    <MuyFrecuentesEjercicio
+      {muyFrecuentes}
+      fecha={fechaObjetivo}
+      onUsado={(g) => onGuardadoChat(g, { mantenerAbierto: true })}
+      onAbrirMuyFrecuente={(slot) => (slotModalMuyFrecuente = slot)}
+      onMuyFrecuenteGuardado={onMuyFrecuenteGuardado}
+    />
+
     <button type="button" class="toggle-hint" onclick={alternarChat}>
       {chatAbierto ? '− Cerrar' : '+ Preguntarle a la IA'}
     </button>
@@ -410,9 +419,6 @@
           {contextoHermanos}
           {pesoKg}
           onGuardado={onGuardadoChat}
-          {muyFrecuentes}
-          onAbrirMuyFrecuente={(slot) => (slotModalMuyFrecuente = slot)}
-          onMuyFrecuenteGuardado={onMuyFrecuenteGuardado}
         />
       </div>
     {/if}
