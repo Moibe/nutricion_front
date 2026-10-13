@@ -19,6 +19,7 @@
   //   crear una nueva.
   import { tick } from 'svelte';
   import { env } from '$env/dynamic/public';
+  import { putMuyFrecuenteEjercicio, type MuyFrecuenteEjercicio } from '$lib/muyFrecuentes';
 
   type ResultadoGuardado = { id: number; conversation_id: string; concepto: string | null; kilocalorias: number };
   type Favorito = { id: number; nombre: string; kilocalorias: number | null };
@@ -31,7 +32,12 @@
     preConversationId = null,
     preResultado = null,
     contextoHermanos = null,
-    pesoKg = null
+    pesoKg = null,
+    muyFrecuentes = null,
+    onAbrirMuyFrecuente,
+    onMuyFrecuenteGuardado,
+    onElegirResultado,
+    etiquetaElegir = 'Guardar'
   }: {
     // A diferencia de comidaId (nullable) en ChatKilocalculator: ejercicio no
     // tiene una fila "padre" que ya traiga la fecha, así que este chat
@@ -56,6 +62,16 @@
     // en el primer turno para que el asistente no lo tenga que preguntar.
     // A diferencia de contextoHermanos, SÍ aplica también al editar.
     pesoKg?: number | null;
+    // Las 4 tarjetas fijas (null = la pantalla no las maneja, p.ej. dentro del
+    // modal de creación). El dueño del estado es /ejercicio, no este chat.
+    muyFrecuentes?: (MuyFrecuenteEjercicio | null)[] | null;
+    onAbrirMuyFrecuente?: (slot: number) => void;
+    onMuyFrecuenteGuardado?: (mf: MuyFrecuenteEjercicio) => void;
+    // Modo elegir-resultado: en vez del Guardar que registra el ejercicio del
+    // día, cada resultado ofrece un solo botón (etiquetaElegir) que entrega el
+    // concepto y las kcal al padre — lo usa el modal de Muy frecuentes.
+    onElegirResultado?: (r: { concepto: string; kilocalorias: number }) => Promise<void> | void;
+    etiquetaElegir?: string;
   } = $props();
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
@@ -216,7 +232,23 @@
   // Empieza replegada, mismo motivo que en ChatKilocalculator.
   let favoritosAbiertos = $state(false);
 
+  // Arrastrar un frecuente a una tarjeta, igual que en comida: el chip lleva el
+  // id en dataTransfer y la tarjeta lo busca en `favoritos` al soltarlo. MIME
+  // propio del lado de ejercicio para que un frecuente de comida no caiga aquí
+  // (ni al revés) si algún día conviven en pantalla.
+  const MIME_FAVORITO = 'application/x-kcal-favorito-ejercicio';
+  const puedeArrastrar = $derived(
+    !!muyFrecuentes && !!onAbrirMuyFrecuente && !!onMuyFrecuenteGuardado
+  );
+  let arrastrandoFavorito = $state(false);
+  let slotSobre = $state<number | null>(null);
+  let guardandoSlotDrop = $state<number | null>(null);
+  let usandoMuyFrecuenteSlot = $state<number | null>(null);
+  let eligiendoIdx = $state<number | null>(null);
+
   $effect(() => {
+    // En modo elegir-resultado no se usan los frecuentes: ni se piden.
+    if (onElegirResultado) return;
     (async () => {
       try {
         const res = await fetch(`${API_URL}/favoritos-ejercicio`);
@@ -380,6 +412,118 @@
   // aquí mismo (no hay conversación real de por medio) — tiene que ser único
   // porque el back hace upsert por ese campo, y cada tap es una entrada
   // nueva, no una edición.
+  function alIniciarArrastre(e: DragEvent, fav: Favorito) {
+    if (!puedeArrastrar || !e.dataTransfer) return;
+    e.dataTransfer.setData(MIME_FAVORITO, String(fav.id));
+    e.dataTransfer.effectAllowed = 'copy';
+    arrastrandoFavorito = true;
+  }
+
+  function alTerminarArrastre() {
+    arrastrandoFavorito = false;
+    slotSobre = null;
+  }
+
+  function esArrastreDeFavorito(e: DragEvent) {
+    return !!e.dataTransfer?.types.includes(MIME_FAVORITO);
+  }
+
+  function alPasarSobreSlot(e: DragEvent, slot: number) {
+    if (!esArrastreDeFavorito(e)) return;
+    e.preventDefault(); // sin esto el navegador no permite soltar aquí
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    slotSobre = slot;
+  }
+
+  function alSalirDeSlot(e: DragEvent, slot: number) {
+    // dragleave también dispara al pasar a un hijo de la misma tarjeta: ahí NO
+    // se sale, y apagar el resalte parpadearía.
+    const destino = e.relatedTarget;
+    if (destino instanceof Node && (e.currentTarget as HTMLElement).contains(destino)) return;
+    if (slotSobre === slot) slotSobre = null;
+  }
+
+  async function alSoltarEnSlot(e: DragEvent, slot: number) {
+    if (!esArrastreDeFavorito(e)) return;
+    e.preventDefault();
+    const id = Number(e.dataTransfer?.getData(MIME_FAVORITO));
+    alTerminarArrastre();
+    const fav = favoritos.find((f) => f.id === id);
+    if (!fav || !onMuyFrecuenteGuardado || guardandoSlotDrop !== null) return;
+    guardandoSlotDrop = slot;
+    saveError = null;
+    try {
+      // Un frecuente viejo sin kcal se guarda con 0, igual que se muestra.
+      const mf = await putMuyFrecuenteEjercicio(API_URL, slot, {
+        nombre: fav.nombre,
+        kilocalorias: fav.kilocalorias ?? 0
+      });
+      onMuyFrecuenteGuardado(mf);
+    } catch (err) {
+      saveError =
+        err instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+    } finally {
+      guardandoSlotDrop = null;
+    }
+  }
+
+  // Usar una tarjeta: igual que usarFavorito -- salta la IA, POST directo a
+  // /ejercicios/chat con un conversation_id sintético y único (cada toque es
+  // una entrada nueva, no una edición), y el panel se queda abierto para tocar
+  // otra enseguida.
+  async function usarMuyFrecuente(mf: MuyFrecuenteEjercicio) {
+    if (usandoMuyFrecuenteSlot !== null) return;
+    usandoMuyFrecuenteSlot = mf.slot;
+    saveError = null;
+    try {
+      const cid = crypto.randomUUID();
+      const res = await fetch(`${API_URL}/ejercicios/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: cid, fecha, concepto: mf.nombre, kilocalorias: mf.kilocalorias })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { id: number };
+      onGuardado?.(
+        { id: data.id, conversation_id: cid, concepto: mf.nombre, kilocalorias: mf.kilocalorias ?? 0 },
+        { mantenerAbierto: true }
+      );
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      usandoMuyFrecuenteSlot = null;
+    }
+  }
+
+  // Modo elegir-resultado: entrega el concepto de la burbuja `i` al padre (el
+  // modal lo guarda en su tarjeta).
+  async function elegirResultado(i: number, r: Respuesta) {
+    if (!onElegirResultado || eligiendoIdx !== null || !r.concepto || r.kilocalorias == null) return;
+    eligiendoIdx = i;
+    saveError = null;
+    try {
+      await onElegirResultado({ concepto: r.concepto, kilocalorias: r.kilocalorias });
+    } catch (e) {
+      saveError =
+        e instanceof TypeError
+          ? `No se pudo conectar con la API en ${API_URL}.`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+    } finally {
+      eligiendoIdx = null;
+    }
+  }
+
   async function usarFavorito(fav: Favorito) {
     if (usandoFavoritoId !== null) return;
     usandoFavoritoId = fav.id;
@@ -463,6 +607,69 @@
   </header>
 
   <div class="log">
+    <!-- Espejo de la rejilla de comida: 4 tarjetas fijas, siempre presentes (a
+         diferencia de "Tus frecuentes", que solo aparece si ya guardaste
+         alguno), para los ejercicios de casi todos los días. Vacía = abre el
+         modal de creación. Llena = al tocarla se registra en la bitácora del
+         día, sin IA; el lápiz la reemplaza. -->
+    {#if turns.length === 0 && muyFrecuentes && onAbrirMuyFrecuente}
+      <div class="empty muy-frecuentes-wrap">
+        <span class="muy-frecuentes-label">Muy frecuentes</span>
+        <div class="muy-frecuentes-grid" class:acepta={arrastrandoFavorito}>
+          {#each muyFrecuentes as mf, slot (slot)}
+            {#if mf}
+              <div
+                class="muy-frecuente-card llena"
+                class:usando={usandoMuyFrecuenteSlot === slot || guardandoSlotDrop === slot}
+                class:sobre={slotSobre === slot}
+                role="group"
+                aria-label={`Muy frecuente ${slot + 1}: ${mf.nombre}`}
+                ondragover={(e) => alPasarSobreSlot(e, slot)}
+                ondragleave={(e) => alSalirDeSlot(e, slot)}
+                ondrop={(e) => alSoltarEnSlot(e, slot)}
+              >
+                <button
+                  type="button"
+                  class="mf-usar"
+                  onclick={() => usarMuyFrecuente(mf)}
+                  disabled={usandoMuyFrecuenteSlot !== null}
+                  title={`Agregar ${mf.nombre} a este día`}
+                >
+                  <span class="mf-nombre">{mf.nombre}</span>
+                  <span class="mf-kcal">{fmt(mf.kilocalorias ?? 0)} kcal</span>
+                </button>
+                <button
+                  type="button"
+                  class="mf-editar"
+                  onclick={() => onAbrirMuyFrecuente(slot)}
+                  aria-label={`Reemplazar Muy frecuente ${slot + 1} (${mf.nombre})`}
+                  title="Reemplazar esta tarjeta"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              </div>
+            {:else}
+              <button
+                type="button"
+                class="muy-frecuente-card vacia"
+                class:usando={guardandoSlotDrop === slot}
+                class:sobre={slotSobre === slot}
+                onclick={() => onAbrirMuyFrecuente(slot)}
+                ondragover={(e) => alPasarSobreSlot(e, slot)}
+                ondragleave={(e) => alSalirDeSlot(e, slot)}
+                ondrop={(e) => alSoltarEnSlot(e, slot)}
+                aria-label={`Crear Muy frecuente ${slot + 1}`}
+                title="Crear Muy frecuente"
+              ></button>
+            {/if}
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     {#if turns.length === 0 && favoritos.length > 0}
       <div class="empty favoritos-wrap">
         <button
@@ -501,7 +708,17 @@
         {#if favoritosAbiertos}
           <div class="favoritos-list">
             {#each favoritos as fav (fav.id)}
-              <span class="favorito-chip" class:usando={usandoFavoritoId === fav.id}>
+              <span
+                class="favorito-chip"
+                class:usando={usandoFavoritoId === fav.id}
+                class:arrastrable={puedeArrastrar}
+                role="group"
+                aria-label={`Frecuente: ${fav.nombre}`}
+                draggable={puedeArrastrar}
+                ondragstart={(e) => alIniciarArrastre(e, fav)}
+                ondragend={alTerminarArrastre}
+                title={puedeArrastrar ? 'Arrástralo a una tarjeta de Muy frecuentes' : undefined}
+              >
                 <button
                   type="button"
                   class="favorito-btn"
@@ -556,6 +773,24 @@
               </div>
             </div>
 
+            {#if onElegirResultado}
+              <div class="save-row">
+                {#if turn.respuesta.concepto && turn.respuesta.kilocalorias != null}
+                  <button
+                    type="button"
+                    class="save-btn"
+                    onclick={() => elegirResultado(i, turn.respuesta)}
+                    disabled={eligiendoIdx !== null}
+                  >
+                    {eligiendoIdx === i ? 'Guardando…' : etiquetaElegir}
+                  </button>
+                {:else}
+                  <!-- Un Muy frecuente necesita nombre y kcal; mejor avisarlo que
+                       dejar un botón que no hace nada. -->
+                  <span class="mf-aviso">El asistente no dio un nombre para el ejercicio: dime cómo se llama y recalculo.</span>
+                {/if}
+              </div>
+            {:else}
             <div class="save-row">
               {#if savedIdx.has(i)}
                 <span class="saved">Guardado ✓</span>
@@ -584,6 +819,7 @@
                 </button>
               {/if}
             </div>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -739,6 +975,185 @@
   .empty {
     color: rgba(15, 23, 42, 0.6);
     font-size: 0.9rem;
+  }
+
+  /* Rejilla de Muy frecuentes: mismo look exacto que en comida (ChatKilocalculator)
+     para que las dos pantallas se sientan iguales. */
+  .muy-frecuentes-wrap {
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .muy-frecuentes-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  .muy-frecuentes-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    /* Un poco más angostas que el ancho completo del chat -- se achican sin
+       dejar de ser 4 cuadros iguales en fila ni de ajustarse al ancho de
+       pantalla (mobile incluido). Centradas (no pegadas a la izquierda) con
+       el margin:auto que deja ese 80% sobrante repartido en ambos lados. */
+    max-width: 80%;
+    margin: 0 auto;
+  }
+
+  .muy-frecuente-card {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    min-width: 0;
+  }
+
+  /* Vacía: el hueco con su borde punteado (el look ya aprobado). Ahora es un
+     <button>, así que se le quitan los estilos nativos y se le da respuesta al
+     pasar el mouse / enfocar con teclado, que es lo que avisa que se puede
+     tocar. */
+  .muy-frecuente-card.vacia {
+    padding: 0;
+    border: 1px dashed var(--line);
+    background: rgba(15, 23, 42, 0.02);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+
+  .muy-frecuente-card.vacia:hover,
+  .muy-frecuente-card.vacia:focus-visible {
+    border-style: solid;
+    border-color: var(--ink);
+    background: var(--volt);
+    outline: none;
+  }
+
+  /* Llena: borde sólido y blanca, para que se distinga de un vistazo de las
+     vacías. El botón principal ocupa toda la tarjeta; el lápiz va aparte,
+     flotando en la esquina (dos <button> no pueden anidarse). */
+  .muy-frecuente-card.llena {
+    border: 1px solid var(--line);
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .muy-frecuente-card.llena.usando {
+    opacity: 0.6;
+  }
+
+  .mf-usar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.3rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.6rem 0.65rem;
+    box-sizing: border-box;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.18s ease;
+  }
+
+  .mf-usar:hover:not(:disabled),
+  .mf-usar:focus-visible {
+    background: var(--volt);
+    outline: none;
+  }
+
+  .mf-usar:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Hasta 3 renglones y luego puntos suspensivos: el nombre completo viaja en
+     el title del botón. */
+  .mf-nombre {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding-right: 1.3rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-kcal {
+    flex-shrink: 0;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--volt);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .mf-editar {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(15, 23, 42, 0.4);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+
+  .mf-editar:hover,
+  .mf-editar:focus-visible {
+    background: var(--ink);
+    color: #ffffff;
+    outline: none;
+  }
+
+  /* Arrastre de un frecuente: mientras dura, todas las tarjetas se marcan como
+     destinos posibles (borde oscuro) y la que está bajo el cursor se ilumina.
+     Los selectores llevan .muy-frecuentes-grid para ganarle en especificidad a
+     .llena y .vacia sin recurrir a !important. */
+  .muy-frecuentes-grid.acepta .muy-frecuente-card {
+    border-color: var(--ink);
+  }
+
+  .muy-frecuentes-grid .muy-frecuente-card.sobre {
+    border-style: solid;
+    border-color: var(--ink);
+    background: var(--volt);
+  }
+
+  .muy-frecuente-card.vacia.usando {
+    opacity: 0.6;
+  }
+
+  /* El chip se agarra: la mano abierta avisa que se puede arrastrar. */
+  .favorito-chip.arrastrable {
+    cursor: grab;
+  }
+
+  .favorito-chip.arrastrable:active {
+    cursor: grabbing;
+  }
+
+  /* Aviso cuando el resultado no trae nombre, en modo elegir. */
+  .mf-aviso {
+    font-size: 0.78rem;
+    color: rgba(15, 23, 42, 0.6);
   }
 
   .favoritos-wrap {

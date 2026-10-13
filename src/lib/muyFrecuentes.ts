@@ -14,6 +14,20 @@ export type MuyFrecuente = {
   updated_at: string;
 };
 
+// El espejo de ejercicio: mismas 4 tarjetas, pero sin macros (no aplican a una
+// actividad) y con "nombre" guardando el concepto del ejercicio.
+export type MuyFrecuenteEjercicio = {
+  slot: number;
+  nombre: string;
+  kilocalorias: number | null;
+  updated_at: string;
+};
+
+export type DatosMuyFrecuenteEjercicio = {
+  nombre: string;
+  kilocalorias: number;
+};
+
 export type DatosMuyFrecuente = {
   nombre: string;
   kilocalorias: number;
@@ -26,12 +40,8 @@ export type DatosMuyFrecuente = {
 // modal de creación (con el resultado de la IA) y el arrastrar-y-soltar de un
 // frecuente (con datos ya guardados) -- un solo lugar que sabe cómo hablarle a
 // la API y cómo leer su error. Lanza Error con el mensaje listo para mostrar.
-export async function putMuyFrecuente(
-  apiUrl: string,
-  slot: number,
-  datos: DatosMuyFrecuente
-): Promise<MuyFrecuente> {
-  const res = await fetch(`${apiUrl}/muy-frecuentes/${slot}`, {
+async function put<T>(apiUrl: string, ruta: string, slot: number, datos: unknown): Promise<T> {
+  const res = await fetch(`${apiUrl}/${ruta}/${slot}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos)
@@ -49,13 +59,31 @@ export async function putMuyFrecuente(
     }
     throw new Error(detalle);
   }
-  return (await res.json()) as MuyFrecuente;
+  return (await res.json()) as T;
+}
+
+export async function putMuyFrecuente(
+  apiUrl: string,
+  slot: number,
+  datos: DatosMuyFrecuente
+): Promise<MuyFrecuente> {
+  return put<MuyFrecuente>(apiUrl, 'muy-frecuentes', slot, datos);
+}
+
+// Mismo contrato que el de comida, contra la ruta espejo de ejercicio (igual
+// que favoritos / favoritos-ejercicio y chat / chat-ejercicio).
+export async function putMuyFrecuenteEjercicio(
+  apiUrl: string,
+  slot: number,
+  datos: DatosMuyFrecuenteEjercicio
+): Promise<MuyFrecuenteEjercicio> {
+  return put<MuyFrecuenteEjercicio>(apiUrl, 'muy-frecuentes-ejercicio', slot, datos);
 }
 
 // La API solo manda los slots llenos; el front necesita siempre las 4
 // posiciones (null = tarjeta vacía) para dibujar la fila completa.
-export function slotsDesde(lista: MuyFrecuente[]): (MuyFrecuente | null)[] {
-  const slots: (MuyFrecuente | null)[] = Array.from({ length: SLOTS_MUY_FRECUENTES }, () => null);
+export function slotsDesde<T extends { slot: number }>(lista: T[]): (T | null)[] {
+  const slots: (T | null)[] = Array.from({ length: SLOTS_MUY_FRECUENTES }, () => null);
   for (const mf of lista) {
     if (Number.isInteger(mf.slot) && mf.slot >= 0 && mf.slot < SLOTS_MUY_FRECUENTES) slots[mf.slot] = mf;
   }

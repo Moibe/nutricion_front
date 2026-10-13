@@ -13,6 +13,8 @@
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
   import ChatEjercicio from '$lib/ChatEjercicio.svelte';
+  import MuyFrecuenteEjercicioModal from '$lib/MuyFrecuenteEjercicioModal.svelte';
+  import { slotsDesde, type MuyFrecuenteEjercicio } from '$lib/muyFrecuentes';
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
@@ -151,6 +153,35 @@
       }
     })();
   });
+
+  // Las 4 tarjetas de "Muy frecuentes" de ejercicio. El estado vive aquí (no en
+  // el chat) porque el modal de creación también las toca y los dos tienen que
+  // ver lo mismo -- mismo reparto que en Alimentación.
+  //
+  // Arranca en null, NO en 4 slots vacíos: así, mientras la API no responda
+  // (incluido el caso de que la ruta todavía no exista), el chat no dibuja la
+  // rejilla y la pantalla se ve exactamente como antes, en vez de ofrecer
+  // tarjetas que fallarían al tocarlas.
+  let muyFrecuentes = $state<(MuyFrecuenteEjercicio | null)[] | null>(null);
+  let slotModalMuyFrecuente = $state<number | null>(null);
+
+  $effect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/muy-frecuentes-ejercicio`);
+        if (res.ok) muyFrecuentes = slotsDesde((await res.json()) as MuyFrecuenteEjercicio[]);
+      } catch {
+        // Best-effort: sin tarjetas, el resto de la pantalla sigue igual.
+      }
+    })();
+  });
+
+  function onMuyFrecuenteGuardado(mf: MuyFrecuenteEjercicio) {
+    if (muyFrecuentes) {
+      muyFrecuentes = muyFrecuentes.map((actual, i) => (i === mf.slot ? mf : actual));
+    }
+    if (slotModalMuyFrecuente === mf.slot) slotModalMuyFrecuente = null;
+  }
 
   // Peso capturado ESE DÍA específicamente -- para mostrarlo en el
   // encabezado, igual que "Peso: X kg" en Alimentación Hoy.
@@ -373,7 +404,16 @@
 
     {#if chatAbierto}
       <div class="chat-panel">
-        <ChatEjercicio fecha={fechaObjetivo} mostrarTitulo={false} {contextoHermanos} {pesoKg} onGuardado={onGuardadoChat} />
+        <ChatEjercicio
+          fecha={fechaObjetivo}
+          mostrarTitulo={false}
+          {contextoHermanos}
+          {pesoKg}
+          onGuardado={onGuardadoChat}
+          {muyFrecuentes}
+          onAbrirMuyFrecuente={(slot) => (slotModalMuyFrecuente = slot)}
+          onMuyFrecuenteGuardado={onMuyFrecuenteGuardado}
+        />
       </div>
     {/if}
 
@@ -499,6 +539,16 @@
     {:else}
       <p class="estado">Aún no hay ejercicio capturado {esHoy ? 'hoy' : 'ese día'}.</p>
     {/if}
+  {/if}
+
+  {#if slotModalMuyFrecuente !== null}
+    <MuyFrecuenteEjercicioModal
+      slot={slotModalMuyFrecuente}
+      actual={muyFrecuentes?.[slotModalMuyFrecuente] ?? null}
+      fecha={fechaObjetivo}
+      onCerrar={() => (slotModalMuyFrecuente = null)}
+      onGuardado={onMuyFrecuenteGuardado}
+    />
   {/if}
 </section>
 
