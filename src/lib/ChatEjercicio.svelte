@@ -19,6 +19,7 @@
   //   crear una nueva.
   import { tick } from 'svelte';
   import { env } from '$env/dynamic/public';
+  import BotonAdjuntarImagen from '$lib/BotonAdjuntarImagen.svelte';
 
   type ResultadoGuardado = { id: number; conversation_id: string; concepto: string | null; kilocalorias: number };
   type Favorito = { id: number; nombre: string; kilocalorias: number | null };
@@ -127,7 +128,6 @@
   // Foto pendiente de enviar (se adjunta al próximo mensaje, o se manda sola).
   let imagenBase64 = $state<string | null>(null);
   let imagenError = $state<string | null>(null);
-  let fileInputEl = $state<HTMLInputElement | null>(null);
   let composerEl = $state<HTMLDivElement | null>(null);
   let inputEl = $state<HTMLInputElement | null>(null);
 
@@ -158,12 +158,9 @@
     scrollHaciaElemento(loading ? loadingEl : turnoEls[turns.length - 1]);
   }
 
-  function elegirImagen() {
-    fileInputEl?.click();
-  }
-
-  // Compartido entre "elegir archivo" y "pegar" (Ctrl+V) — misma validación y
-  // lectura a data URI para cualquiera de las dos formas de adjuntar la foto.
+  // Compartido entre "elegir archivo", la webcam y "pegar" (Ctrl+V) — misma
+  // validación y lectura a data URI para cualquiera de las tres formas de
+  // adjuntar la foto.
   function procesarImagenArchivo(archivo: File) {
     imagenError = null;
     if (!archivo.type.startsWith('image/')) {
@@ -182,14 +179,6 @@
       imagenError = 'No se pudo leer la imagen.';
     };
     reader.readAsDataURL(archivo);
-  }
-
-  function onImagenSeleccionada(e: Event) {
-    const archivo = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
-    // Limpiar el input ya — así elegir el MISMO archivo dos veces seguidas
-    // vuelve a disparar el evento change.
-    (e.currentTarget as HTMLInputElement).value = '';
-    if (archivo) procesarImagenArchivo(archivo);
   }
 
   // Pegar una imagen (Ctrl+V) directo en el campo de texto — copiada de un
@@ -701,30 +690,13 @@
   {/if}
 
   <div class="composer" bind:this={composerEl}>
-    <!-- Sin el atributo `capture`: en móvil forzaba la cámara trasera y no dejaba
-         elegir una foto ya tomada. Sin él, iOS y Android abren su hoja nativa
-         (Fotos / Tomar foto / Archivos), y en escritorio sigue siendo el
-         selector de archivos de siempre. -->
-    <input
-      bind:this={fileInputEl}
-      type="file"
-      accept="image/*"
-      class="imagen-input-oculto"
-      onchange={onImagenSeleccionada}
-    />
-    <button
-      type="button"
-      class="adjuntar-btn"
-      onclick={elegirImagen}
+    <!-- El botón (y su menú de archivo / webcam en escritorio) vive en su propio
+         componente: ver BotonAdjuntarImagen. -->
+    <BotonAdjuntarImagen
       disabled={loading}
-      aria-label="Adjuntar foto del ejercicio"
-      title="Adjuntar foto del ejercicio"
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z" />
-        <circle cx="12" cy="13" r="4" />
-      </svg>
-    </button>
+      etiqueta="Adjuntar foto del ejercicio"
+      onArchivo={procesarImagenArchivo}
+    />
     <input
       type="text"
       placeholder="¿Qué ejercicio hiciste?"
@@ -1202,34 +1174,6 @@
     font-size: 0.85rem;
     line-height: 1;
     cursor: pointer;
-  }
-
-  .imagen-input-oculto {
-    display: none;
-  }
-
-  /* Mismo tratamiento visual que .ghost — secundario, no compite con Enviar. */
-  .adjuntar-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 42px;
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    color: var(--ink);
-    cursor: pointer;
-    transition: filter 0.18s ease;
-  }
-
-  .adjuntar-btn:hover:not(:disabled) {
-    filter: brightness(0.96);
-  }
-
-  .adjuntar-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .composer {
