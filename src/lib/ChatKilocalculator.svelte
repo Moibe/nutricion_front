@@ -1199,11 +1199,14 @@
   {/if}
 
   <div class="composer" bind:this={composerEl}>
+    <!-- Sin el atributo `capture`: en móvil forzaba la cámara trasera y no dejaba
+         elegir una foto ya tomada. Sin él, iOS y Android abren su hoja nativa
+         (Fotos / Tomar foto / Archivos), y en escritorio sigue siendo el
+         selector de archivos de siempre. -->
     <input
       bind:this={fileInputEl}
       type="file"
       accept="image/*"
-      capture="environment"
       class="imagen-input-oculto"
       onchange={onImagenSeleccionada}
     />
