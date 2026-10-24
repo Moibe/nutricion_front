@@ -84,6 +84,18 @@
     return `${d}/${m}`;
   }
 
+  // Día de la semana de una fecha YYYY-MM-DD, para la columna Fecha. Los
+  // nombres van en una lista fija en vez de pedírselos a Intl: la abreviatura
+  // ("sáb" vs "sáb.") cambia con la versión de ICU del navegador, y aquí se
+  // quiere exactamente 3 letras siempre. Se construye con año/mes/día locales
+  // (sin hora de por medio), así que no depende de la zona horaria.
+  const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  function diaSemana(fecha: string) {
+    const [y, m, d] = fecha.split('-').map(Number);
+    const nombre = DIAS_SEMANA[new Date(y, m - 1, d).getDay()];
+    return { corto: nombre.slice(0, 3), largo: nombre };
+  }
+
   // Suma/resta días en UTC puro (sin horas de por medio) para no depender de
   // la zona horaria del navegador -- mismo helper que /hoy, /ejercicio y /peso.
   function sumarDias(fechaISO: string, delta: number): string {
@@ -343,10 +355,11 @@
         </thead>
         <tbody>
           {#each filas as f (f.fecha)}
+            {@const dia = diaSemana(f.fecha)}
             <tr class:hoy={f.fecha === hoyISO}>
               <td class="col-fecha">
-                <span class="completo">{formatoFecha(f.fecha)}</span>
-                <span class="compacto">{formatoFechaCorto(f.fecha)}</span>
+                <span class="completo"><abbr class="dia-sem" title={dia.largo}>{dia.corto}</abbr> {formatoFecha(f.fecha)}</span>
+                <span class="compacto"><abbr class="dia-sem" title={dia.largo}>{dia.corto}</abbr> {formatoFechaCorto(f.fecha)}</span>
               </td>
               <td class="col-peso">
                 {#if f.peso !== null}
@@ -409,12 +422,14 @@
   /* 720px se quedó corto al agregar la columna "Peso sig.": aunque su título
      ya se acortó, sus datos (número + triangulito) siguen necesitando ~100px
      más de los que sobraban -- sin este ajuste la tabla vuelve a necesitar
-     scroll horizontal aun con el título corto. */
+     scroll horizontal aun con el título corto. Y 820px se quedó corto otros
+     ~18px al agregar el día de la semana a la columna Fecha (la tabla cabía
+     exacta, 818 de 818): a 860px vuelve a caber con holgura. */
   .registro-page {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
-    max-width: 820px;
+    max-width: 860px;
     margin: 0 auto;
     color: var(--ink);
   }
@@ -524,6 +539,28 @@
 
   .col-fecha {
     text-align: left;
+  }
+
+  /* El día de la semana va tenue (la fecha es lo que manda) y sin el subrayado
+     punteado que el navegador le pone por default a <abbr title>: el nombre
+     completo sigue disponible al pasar el mouse. */
+  .dia-sem {
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 0.85em;
+    text-decoration: none;
+    cursor: inherit;
+  }
+
+  /* Solo escritorio. Con el día de la semana la columna Fecha crece ~32px y la
+     tabla (que cabía justo a 1152px de ventana) empezaba a desbordar ahí. El día
+     va un poco más chico y la columna cede relleno lateral: vuelve a caber. */
+  @media (min-width: 769px) {
+    .tabla-registro th.col-fecha,
+    .tabla-registro td.col-fecha {
+      padding-left: 0.7rem;
+      padding-right: 0.7rem;
+    }
   }
 
   /* Par de etiquetas que se intercambian por ancho: ambas se renderizan y el
@@ -693,6 +730,32 @@
     .tabla-registro thead th {
       font-size: 0.62rem;
       letter-spacing: 0.02em;
+    }
+
+    /* El día de la semana va APILADO sobre la fecha (chiquito arriba, como en
+       un calendario) y no en línea. La tabla ya viene al ras del ancho
+       disponible en un iPhone; en línea costaba ~23px de ancho mínimo (la hacía
+       desbordar y, para ahorrar espacio, el día quedaba pegado al número:
+       "Mié21/10"). Apilado no gasta nada de ancho. Para que tampoco gaste alto,
+       la celda de fecha cede relleno vertical: las dos líneas caben en los
+       mismos 33px que ya medía el renglón. */
+    .tabla-registro td.col-fecha {
+      padding-top: 0.32rem;
+      padding-bottom: 0.32rem;
+      line-height: 1.05;
+    }
+
+    /* display:flex (de bloque), no inline-flex: este último queda dentro de una
+       línea de texto y le suma su alto de línea al renglón. */
+    .col-fecha .compacto {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .dia-sem {
+      font-size: 0.56rem;
+      line-height: 1;
     }
   }
 
