@@ -1088,6 +1088,7 @@
                 comidaId={c.id}
                 mostrarTitulo={false}
                 contextoHermanos={resumenHermanos(c)}
+                tieneConsumos={c.consumos.length > 0}
                 {muyFrecuentes}
                 onAbrirMuyFrecuente={(slot) => (slotModalMuyFrecuente = slot)}
                 onMuyFrecuenteGuardado={onMuyFrecuenteGuardado}

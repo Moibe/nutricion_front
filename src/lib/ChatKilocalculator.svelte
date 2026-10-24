@@ -46,6 +46,7 @@
     preConversationId = null,
     preResultado = null,
     contextoHermanos = null,
+    tieneConsumos = false,
     muyFrecuentes = null,
     onAbrirMuyFrecuente,
     onMuyFrecuenteGuardado,
@@ -70,6 +71,14 @@
     // usuario puede aludir a uno anterior ("del tamaño de las gotitas de
     // chocolate") sin repetir la descripción completa.
     contextoHermanos?: string | null;
+    // Si esta comida YA tiene algún consumo guardado. "No comí nada" solo tiene
+    // sentido en una comida vacía (deja constancia de que se saltó): con algo ya
+    // registrado no aplica y el botón se oculta. Lo manda el padre porque es
+    // quien lleva la lista de consumos y la actualiza al guardar cada uno
+    // (también al agregar varios seguidos con el panel abierto), así que el
+    // botón desaparece en cuanto se guarda el primero. Es un booleano aparte de
+    // contextoHermanos a propósito: ese solo trae los consumos que tienen nombre.
+    tieneConsumos?: boolean;
     // Tarjetas "Muy frecuentes" (4 posiciones; null = vacía). Solo se dibujan si
     // el padre manda las dos cosas: la lista y qué hacer al tocar una vacía
     // (abrir el modal de creación) o el lápiz de una llena (reemplazarla).
@@ -474,7 +483,9 @@
   // cualquier otra capturada, y el total del día no cambia. No pasa por la IA,
   // así que no gasta tokens.
   async function registrarNada() {
-    if (guardandoNada || comidaId == null) return;
+    // tieneConsumos: el botón ya no se dibuja en ese caso; esto cubre un estado
+    // viejo (p. ej. la comida recibió un consumo desde otra pestaña).
+    if (guardandoNada || comidaId == null || tieneConsumos) return;
     guardandoNada = true;
     saveError = null;
     try {
@@ -918,7 +929,7 @@
 
   <div class="log">
     {#if turns.length === 0}
-      {#if comidaId != null}
+      {#if comidaId != null && !tieneConsumos}
         <div class="empty nada-wrap">
           <button type="button" class="nada-btn" onclick={registrarNada} disabled={guardandoNada}>
             {guardandoNada ? 'Guardando…' : 'No comí nada'}
