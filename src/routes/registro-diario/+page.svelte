@@ -5,6 +5,7 @@
   // si es negativo. Junta datos de /comidas + /metricas-ios + /perfil, todo
   // client-side (mismo patrón que el resto de la app).
   import { env } from '$env/dynamic/public';
+  import GraficaPesoMes from '$lib/GraficaPesoMes.svelte';
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
@@ -229,6 +230,23 @@
       });
   });
 
+  // Para la gráfica de peso del mes: un punto por cada día CON peso (los días
+  // sin pesar no son punto, son hueco), en orden de día. Sale de `filas`, así
+  // que gráfica y tabla nunca discrepan; el delta es el mismo de los
+  // triangulitos (contra el último día pesado, aunque sea del mes anterior).
+  const diasDelMes = $derived(new Date(anio, mes + 1, 0).getDate());
+  const puntosPeso = $derived(
+    filas
+      .filter((f) => f.peso !== null)
+      .map((f) => ({
+        dia: Number(f.fecha.slice(8, 10)),
+        etiqueta: `${diaSemana(f.fecha).corto} ${formatoFecha(f.fecha)}`,
+        peso: f.peso as number,
+        delta: f.deltaPeso
+      }))
+      .sort((a, b) => a.dia - b.dia)
+  );
+
   // Perfil es un singleton (no depende del mes en pantalla) — se carga una
   // sola vez, aparte del efecto que sí se repite cada vez que cambias de mes.
   $effect(() => {
@@ -310,6 +328,8 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
+    <GraficaPesoMes puntos={puntosPeso} {diasDelMes} />
+
     <div class="tabla-scroll">
       {#snippet trianguloPeso(delta: number | null, fechaPrevio: string | null)}
         {#if delta !== null}
