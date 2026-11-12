@@ -5,7 +5,8 @@
   // si es negativo. Junta datos de /comidas + /metricas-ios + /perfil, todo
   // client-side (mismo patrón que el resto de la app).
   import { env } from '$env/dynamic/public';
-  import GraficaPesoMes from '$lib/GraficaPesoMes.svelte';
+  import { onMount } from 'svelte';
+  import GraficaPeso from '$lib/GraficaPeso.svelte';
 
   const API_URL = env.PUBLIC_API_URL ?? '/api';
 
@@ -230,22 +231,124 @@
       });
   });
 
-  // Para la gráfica de peso del mes: un punto por cada día CON peso (los días
-  // sin pesar no son punto, son hueco), en orden de día. Sale de `filas`, así
-  // que gráfica y tabla nunca discrepan; el delta es el mismo de los
-  // triangulitos (contra el último día pesado, aunque sea del mes anterior).
-  const diasDelMes = $derived(new Date(anio, mes + 1, 0).getDate());
-  const puntosPeso = $derived(
-    filas
-      .filter((f) => f.peso !== null)
-      .map((f) => ({
-        dia: Number(f.fecha.slice(8, 10)),
-        etiqueta: `${diaSemana(f.fecha).corto} ${formatoFecha(f.fecha)}`,
-        peso: f.peso as number,
-        delta: f.deltaPeso
-      }))
-      .sort((a, b) => a.dia - b.dia)
-  );
+  // --- Gráfica de peso: zoom a varios meses --------------------------------
+  // El selector de la gráfica abarca 1, 3, 6 o 12 meses, o todo el historial
+  // (0). La ventana TERMINA siempre en el mes en pantalla (si navegas a
+  // octubre, "3 meses" son agosto-octubre) y es cosa solo de la gráfica: la
+  // tabla, el mes y sus datos no se enteran. Con 1 mes los puntos salen de
+  // `filas` (un punto por cada día CON peso, los días sin pesar son hueco), así
+  // que gráfica y tabla nunca discrepan; el delta es el de los triangulitos
+  // (contra el último día pesado, aunque sea del mes anterior).
+  //
+  // Un rango mayor necesita pesos de meses que la tabla no carga: se pide UNA
+  // vez todo el historial (`/metricas-ios` sin fechas) la primera vez que se
+  // hace zoom out, y de ahí se recorta en el cliente -- cambiar de rango o de
+  // mes ya no vuelve a pedir nada. Mientras llega, la gráfica sigue mostrando
+  // el mes (atenuada).
+  const RANGOS = [1, 3, 6, 12, 0];
+  const CLAVE_RANGO = 'kcal:grafica-peso:rango';
+
+  let rango = $state(1);
+  // Todos los pesos, de más viejo a más nuevo. `.raw`: es una lista grande que
+  // solo se reemplaza completa, no hace falta vigilar cada elemento.
+  let historial = $state.raw<{ fecha: string; peso: number }[] | null>(null);
+  let cargandoHistorial = $state(false);
+  let errorHistorial = $state<string | null>(null);
+
+  async function cargarHistorial() {
+    if (historial !== null || cargandoHistorial) return;
+    cargandoHistorial = true;
+    errorHistorial = null;
+    try {
+      const res = await fetch(`${API_URL}/metricas-ios`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const filas = (await res.json()) as MetricaIos[];
+      historial = filas
+        .filter((m) => m.tipo === 'peso')
+        .map((m) => ({ fecha: m.fecha, peso: m.valor }))
+        .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    } catch {
+      // Sin historial no hay zoom: se regresa al mes, que sí se tiene.
+      errorHistorial = 'No se pudo cargar el historial de pesos.';
+      rango = 1;
+    } finally {
+      cargandoHistorial = false;
+    }
+  }
+
+  function elegirRango(r: number) {
+    rango = r;
+    errorHistorial = null;
+    if (r !== 1) void cargarHistorial();
+    try {
+      localStorage.setItem(CLAVE_RANGO, String(r));
+    } catch {
+      // Almacenamiento bloqueado (modo privado, etc.): el zoom sirve igual, solo no se recuerda.
+    }
+  }
+
+  // Se recuerda el último zoom (solo de este navegador): quien prefiere ver 3
+  // meses no tiene que volver a pedirlo en cada visita.
+  onMount(() => {
+    try {
+      const guardado = localStorage.getItem(CLAVE_RANGO);
+      const r = guardado === null ? NaN : Number(guardado);
+      if (RANGOS.includes(r) && r !== 1) {
+        rango = r;
+        void cargarHistorial();
+      }
+    } catch {
+      // Sin almacenamiento: se queda en 1 mes.
+    }
+  });
+
+  // Hay zoom de verdad solo cuando ya llegó el historial; antes, es el mes.
+  const zoomActivo = $derived(rango !== 1 && historial !== null);
+
+  // La ventana siempre son meses completos, de `desde` (día 1) a `hasta` (último
+  // día del mes en pantalla). No se estira hacia un pasado sin pesos: con 3 meses
+  // de datos, "1 año" no debe ser 75% vacío, así que arranca en el mes del primer
+  // peso.
+  const ventana = $derived.by(() => {
+    const pesos = historial;
+    if (!zoomActivo || pesos === null) return { desde, hasta };
+    const primero = pesos.length > 0 && pesos[0].fecha <= hasta ? pesos[0].fecha : null;
+    if (primero === null) return { desde, hasta };
+    const [py, pm] = primero.split('-').map(Number);
+    const mesPrimero = py * 12 + (pm - 1);
+    const mesPedido = rango === 0 ? mesPrimero : anio * 12 + mes - (rango - 1);
+    const ini = Math.max(mesPedido, mesPrimero);
+    return { desde: `${Math.floor(ini / 12)}-${pad((ini % 12) + 1)}-01`, hasta };
+  });
+
+  const puntosGrafica = $derived.by(() => {
+    const pesos = historial;
+    if (!zoomActivo || pesos === null) {
+      return filas
+        .filter((f) => f.peso !== null)
+        .map((f) => ({ fecha: f.fecha, peso: f.peso as number, delta: f.deltaPeso }))
+        .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    }
+    // El delta de cada punto es contra el peso anterior de TODO el historial
+    // (también el de antes de la ventana), como el de los triangulitos.
+    const out: { fecha: string; peso: number; delta: number | null }[] = [];
+    let previo: number | null = null;
+    for (const p of pesos) {
+      if (p.fecha > ventana.hasta) break;
+      if (p.fecha >= ventana.desde) {
+        out.push({
+          fecha: p.fecha,
+          peso: p.peso,
+          delta: previo !== null ? Math.round((p.peso - previo) * 10) / 10 : null
+        });
+      }
+      previo = p.peso;
+    }
+    return out;
+  });
+
+  // Igual que en la columna Fecha de la tabla ("Vie 6 nov 2026").
+  const etiquetaFecha = (f: string) => `${diaSemana(f).corto} ${formatoFecha(f)}`;
 
   // Perfil es un singleton (no depende del mes en pantalla) — se carga una
   // sola vez, aparte del efecto que sí se repite cada vez que cambias de mes.
@@ -328,7 +431,16 @@
   {:else if filas.length === 0}
     <p class="estado">Aún no hay datos guardados este mes.</p>
   {:else}
-    <GraficaPesoMes puntos={puntosPeso} {diasDelMes} />
+    <GraficaPeso
+      puntos={puntosGrafica}
+      desde={ventana.desde}
+      hasta={ventana.hasta}
+      {rango}
+      onRango={elegirRango}
+      cargando={cargandoHistorial}
+      errorRango={errorHistorial}
+      {etiquetaFecha}
+    />
 
     <div class="tabla-scroll">
       {#snippet trianguloPeso(delta: number | null, fechaPrevio: string | null)}
