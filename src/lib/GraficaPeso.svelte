@@ -1,35 +1,31 @@
 <script lang="ts">
   // Peso a lo largo del tiempo: lo ALTO es el peso (kg) y lo LARGO es la fecha.
-  // El selector de arriba es el "zoom out": de 1 mes (los días del mes en el
-  // eje) hasta todo el historial (los meses en el eje). Una sola serie, así que
-  // es una línea sin leyenda -- el título ya dice qué se grafica -- en el mismo
-  // morado que identifica a "Peso" en la tabla.
+  // Una sola serie, así que es una línea sin leyenda -- el título ya dice qué se
+  // grafica -- en el mismo morado que identifica a "Peso" en la tabla.
   //
-  // Se dibuja a mano en SVG (sin librería de gráficas). El eje X es la ventana
-  // COMPLETA de meses, no solo los días con dato: así un mes a medias se ve a
-  // medias, y los días sin pesar se ven como huecos entre los puntos. La línea
-  // une las pesadas, pero se CORTA cuando pasan más de HUECO_MAX_DIAS sin pesar:
-  // no se inventa una tendencia sobre semanas que nadie midió. El eje Y NO parte
-  // de cero -- en una línea lo que importa es la variación, y desde cero todo
-  // sería una recta.
+  // Se dibuja a mano en SVG (sin librería de gráficas). El eje X es TIEMPO
+  // continuo (no solo los días con dato): los días sin pesar se ven como huecos.
+  // La línea une las pesadas, pero se CORTA cuando pasan más de HUECO_MAX_DIAS sin
+  // pesar: no se inventa una tendencia sobre semanas que nadie midió. El eje Y NO
+  // parte de cero -- en una línea lo que importa es la variación.
   //
-  // Esta gráfica no sabe de dónde salen los datos: quien la usa le da los puntos
-  // ya recortados a la ventana [desde, hasta] (que siempre son meses completos:
-  // `desde` es día 1 y `hasta` el último día de un mes) y escucha el cambio de
-  // rango por `onRango`.
+  // Zoom de verdad: la vista es un tramo [vi, vf) de días dentro del dominio
+  // [dominioDesde, dominioHasta]. La rueda acerca/aleja alrededor del cursor, y
+  // arrastrar con el mouse (o la rueda horizontal / Shift+rueda) se mueve en el
+  // tiempo. El selector de arriba son atajos (1 mes, 3 meses... Todo) que fijan
+  // la vista a esos meses; doble clic regresa al atajo elegido.
   //
-  // Interacción (la gráfica es interactiva por default): una cruz vertical se
-  // pega al día medido más cercano y un tooltip da fecha, peso y cambio. Funciona
-  // con mouse, con el dedo (arrastrar) y con teclado (flechas). La tabla de abajo
-  // trae los mismos datos del mes, así que el tooltip nunca es la única vía.
-  // Además, la rueda del mouse sobre la gráfica acerca y aleja (ver `rueda`): es un
-  // atajo del selector de rango, que sigue siendo la vía que sirve con cualquier
-  // dispositivo.
+  // Interacción de lectura: una cruz vertical se pega al día medido más cercano y
+  // un tooltip da fecha, peso y cambio. Funciona con mouse, con el dedo y con
+  // teclado (flechas; + y - hacen zoom). La tabla de abajo trae los mismos datos
+  // del mes, así que el tooltip nunca es la única vía.
+  import { untrack } from 'svelte';
+
   type Punto = {
     // YYYY-MM-DD
     fecha: string;
     peso: number;
-    // Cambio contra el último día pesado anterior (puede ser de otro mes); null si no hay.
+    // Cambio contra el último día pesado anterior; null si no hay.
     delta: number | null;
   };
 
@@ -37,33 +33,27 @@
     puntos,
     desde,
     hasta,
+    dominioDesde,
+    dominioHasta,
     rango,
     onRango,
     cargando = false,
     errorRango = null,
-    puedeAcercar = false,
-    puedeAlejar = false,
-    onZoom,
     etiquetaFecha
   }: {
+    // Todos los pesos del dominio (de más viejo a más nuevo).
     puntos: Punto[];
+    // La ventana del atajo elegido (meses completos).
     desde: string;
     hasta: string;
-    // Meses que pidió el usuario (0 = todo el historial). La ventana real puede
-    // ser más corta si el historial no llega tan atrás.
+    // Hasta dónde se puede alejar / desplazar.
+    dominioDesde: string;
+    dominioHasta: string;
+    // Meses del atajo (0 = todo el historial).
     rango: number;
     onRango: (rango: number) => void;
-    // Mientras llega el historial para un rango mayor, se sigue mostrando lo que
-    // había (atenuado) en vez de vaciar la tarjeta.
     cargando?: boolean;
     errorRango?: string | null;
-    // Rueda del mouse: ¿hay un zoom más cerca / más lejos al que ir? Lo decide quien
-    // usa la gráfica (que sabe cuántos meses de historial hay). Sin a dónde ir, la
-    // rueda no se intercepta y el scroll sigue moviendo la página.
-    puedeAcercar?: boolean;
-    puedeAlejar?: boolean;
-    // Un paso de zoom: -1 acerca (menos meses), 1 aleja (más meses).
-    onZoom?: (direccion: -1 | 1) => void;
     // "Sáb 24 oct 2026": la da quien usa la gráfica, para que se lea igual que la tabla.
     etiquetaFecha: (fecha: string) => string;
   } = $props();
@@ -79,16 +69,18 @@
   // El mismo morado de la columna Peso (validado: contraste y croma de sobra).
   const COLOR = '#6d28d9';
 
-  // Márgenes dentro del lienzo: izquierda para los números del eje, abajo para las fechas.
   const IZQ = 38;
   const DER = 16;
   const ARR = 16;
+  // Abajo: fila de fechas + fila de contexto (mes/año).
+  const ABA = 42;
 
-  // Dos pesadas con más días que esto de por medio no se unen con línea.
   const HUECO_MAX_DIAS = 14;
+  // Lo más cerca que se puede acercar: una semana a lo ancho.
+  const MIN_DIAS = 7;
+  // Cuánto zoom da cada pixel de rueda (una muesca de mouse ≈ 100px ≈ ×1.22).
+  const ZOOM_POR_PX = 0.002;
 
-  // Lista fija en vez de Intl: la abreviatura ("sep" vs "sept.") cambia con la
-  // versión de ICU del navegador y aquí se quiere exactamente esto siempre.
   const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const MESES_LARGOS = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -97,57 +89,94 @@
 
   const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('es-MX');
 
-  // Día absoluto (días desde 1970, en UTC puro: sin horas ni zona horaria de por medio).
+  // Día absoluto (días desde 1970, en UTC puro).
   const diaAbs = (f: string) => {
     const [y, m, d] = f.split('-').map(Number);
     return Date.UTC(y, m - 1, d) / 86_400_000;
   };
+  const deAbs = (d: number) => {
+    const t = new Date(Math.floor(d) * 86_400_000);
+    return { anio: t.getUTCFullYear(), mes: t.getUTCMonth(), dia: t.getUTCDate() };
+  };
+  const absDeMes = (mi: number) => Date.UTC(Math.floor(mi / 12), mi % 12, 1) / 86_400_000;
+  const diasDelMes = (anio: number, mes: number) => new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+  const textoDia = (d: number, conAnio: boolean) => {
+    const f = deAbs(d);
+    return `${f.dia} ${MESES_CORTOS[f.mes]}${conAnio ? ` ${f.anio}` : ''}`;
+  };
 
-  // --- La ventana de tiempo -----------------------------------------------
-  // Un renglón por mes que abarca la ventana, con el día (0-based) en que empieza.
-  const bandas = $derived.by(() => {
-    const [y0, m0] = desde.split('-').map(Number);
-    const [y1, m1] = hasta.split('-').map(Number);
-    const out: { anio: number; mes: number; inicio: number; dias: number }[] = [];
-    let inicio = 0;
-    for (let k = y0 * 12 + (m0 - 1); k <= y1 * 12 + (m1 - 1); k++) {
-      const anio = Math.floor(k / 12);
-      const mes = k % 12;
-      const dias = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
-      out.push({ anio, mes, inicio, dias });
-      inicio += dias;
-    }
-    return out;
+  // --- Dominio y vista ------------------------------------------------------
+  const D0 = $derived(diaAbs(dominioDesde));
+  const D1 = $derived(Math.max(diaAbs(dominioHasta) + 1, D0 + MIN_DIAS));
+  const total = $derived(D1 - D0);
+
+  // La vista del atajo elegido.
+  const pIni = $derived(diaAbs(desde));
+  const pFin = $derived(diaAbs(hasta) + 1);
+
+  let vi = $state(0);
+  let vf = $state(1);
+  const span = $derived(vf - vi);
+
+  // Cada clic en un atajo (aunque sea el mismo) vuelve a fijar la vista.
+  let pedido = $state(0);
+  $effect(() => {
+    const a = pIni;
+    const b = pFin;
+    void pedido;
+    untrack(() => {
+      vi = a;
+      vf = b;
+    });
   });
-  const meses = $derived(bandas.length);
-  const origen = $derived(diaAbs(desde));
-  const totalDias = $derived(Math.max(Math.round(diaAbs(hasta) - origen) + 1, 1));
-  // Si la ventana cruza de año, el eje lleva una segunda fila con los años.
-  const conAnios = $derived(meses > 1 && bandas[0].anio !== bandas[meses - 1].anio);
 
-  // Cada punto con su posición en la ventana (día 0 = `desde`).
+  function fijar(inicio: number, ancho: number) {
+    const s = Math.min(Math.max(ancho, MIN_DIAS), total);
+    const a = Math.min(Math.max(inicio, D0), D1 - s);
+    vi = a;
+    vf = a + s;
+  }
+
+  // ¿La vista es exactamente la del atajo? Si no, ninguna pastilla va marcada.
+  const personalizada = $derived(Math.abs(vi - pIni) > 0.01 || Math.abs(vf - pFin) > 0.01);
+
+  function elegir(r: number) {
+    onRango(r);
+    pedido++;
+  }
+
+  // --- Puntos ---------------------------------------------------------------
   const pts = $derived(
-    puntos
-      .map((p) => ({ ...p, i: Math.round(diaAbs(p.fecha) - origen) }))
-      .filter((p) => p.i >= 0 && p.i < totalDias)
+    puntos.map((p) => ({ ...p, d: diaAbs(p.fecha) })).filter((p) => p.d >= D0 && p.d < D1)
   );
+  // Índices (en pts) de lo que cae dentro de la vista.
+  const rangoVis = $derived.by(() => {
+    let a = 0;
+    while (a < pts.length && pts[a].d + 0.5 < vi) a++;
+    let b = a;
+    while (b < pts.length && pts[b].d + 0.5 <= vf) b++;
+    return { a, b };
+  });
+  const vis = $derived(pts.slice(rangoVis.a, rangoVis.b).map((p, j) => ({ ...p, k: rangoVis.a + j })));
+  // Para la línea: además, un punto a cada lado (la línea entra y sale del borde).
+  const dibujados = $derived(pts.slice(Math.max(rangoVis.a - 1, 0), Math.min(rangoVis.b + 1, pts.length)));
 
   // --- Dimensiones --------------------------------------------------------
   let ancho = $state(0);
   const movil = $derived(ancho > 0 && ancho < 480);
   const plotH = $derived(movil ? 148 : 188);
-  const aba = $derived(conAnios ? 42 : 26);
-  const alto = $derived(ARR + plotH + aba);
+  const alto = $derived(ARR + plotH + ABA);
   const plotW = $derived(Math.max(ancho - IZQ - DER, 1));
+  const pxDia = $derived(plotW / span);
 
-  // Escala vertical: el rango de los datos con un poco de aire, y marcas en pasos
-  // "redondos" (0.5, 1, 2, 5, 10 kg) -- las más finas que den ~5 renglones o menos.
+  // Escala vertical, de lo que se ve (si no se ve nada, de todo).
   const escala = $derived.by(() => {
-    if (pts.length === 0) return null;
-    const pesos = pts.map((p) => p.peso);
+    const base0 = vis.length > 0 ? vis : pts;
+    if (base0.length === 0) return null;
+    const pesos = base0.map((p) => p.peso);
     const min = Math.min(...pesos);
     const max = Math.max(...pesos);
-    const base = Math.max(max - min, 2); // una ventana plana o de un solo punto no se aplasta
+    const base = Math.max(max - min, 2);
     const lo0 = min - base * 0.12;
     const hi0 = max + base * 0.12;
     const paso = [0.5, 1, 2, 5, 10].find((p) => (hi0 - lo0) / p <= 5) ?? 10;
@@ -158,11 +187,9 @@
     return { lo, hi, paso, marcas };
   });
 
-  // Cada día es una "banda" del mismo ancho y el punto cae al centro de la suya:
-  // así el primer día y el último no quedan pegados a los bordes.
-  const x = (i: number) => IZQ + ((i + 0.5) / totalDias) * plotW;
-  // Borde izquierdo del día `i` (admite fracciones): para los límites de cada mes.
-  const xBorde = (i: number) => IZQ + (i / totalDias) * plotW;
+  // Centro del día `d` / borde izquierdo del día `d`.
+  const x = (d: number) => IZQ + ((d + 0.5 - vi) / span) * plotW;
+  const xBorde = (d: number) => IZQ + ((d - vi) / span) * plotW;
   const y = (peso: number) => {
     const e = escala;
     if (!e) return ARR + plotH;
@@ -173,259 +200,329 @@
       minimumFractionDigits: escala && escala.paso < 1 ? 1 : 0,
       maximumFractionDigits: escala && escala.paso < 1 ? 1 : 0
     });
+  const dentro = (px: number) => px >= IZQ - 0.5 && px <= IZQ + plotW + 0.5;
 
   // --- Eje X --------------------------------------------------------------
-  // Un solo mes: los días. Etiquetas según el espacio: todos si caben, si no 1, 5,
-  // 10, 15... y en un teléfono muy angosto 1, 10, 20, 30.
-  const diasConEtiqueta = $derived.by(() => {
-    if (meses !== 1) return [];
-    const sep = plotW / totalDias;
-    const dias: number[] = [];
-    for (let d = 1; d <= totalDias; d++) {
-      if (sep >= 20) dias.push(d);
-      else if (sep >= 8) {
-        if (d === 1 || d % 5 === 0) dias.push(d);
-      } else if (d === 1 || d % 10 === 0) dias.push(d);
-    }
-    return dias;
-  });
+  // Según cuántos pixeles tiene cada día: con zoom cercano, días del mes (todos,
+  // o 1, 5, 10... o 1, 10, 20); más lejos, meses (todos, o uno de cada 2, 3, 6,
+  // 12). Las marcas se anclan al calendario (día 10, enero...) y no a la orilla,
+  // así al desplazar se mueven con los datos en vez de bailar.
+  const modoDias = $derived(span <= 75 && pxDia * 10 >= 28);
 
-  // Varios meses: el nombre de cada mes centrado en su tramo (completo si cabe,
-  // si no 3 letras), y si ni así caben todos, uno de cada `paso` -- contando desde
-  // el ÚLTIMO mes, que es el de la tabla y siempre lleva etiqueta.
-  const etiquetasMes = $derived.by(() => {
-    const n = bandas.length;
-    if (n <= 1) return [];
-    const anchoBanda = plotW / n;
-    const largo = anchoBanda >= 84;
-    const paso = Math.max(1, Math.ceil((largo ? 72 : 26) / anchoBanda));
-    const out: { k: number; texto: string; centro: number; borde: number }[] = [];
-    for (let k = 0; k < n; k++) {
-      if ((n - 1 - k) % paso !== 0) continue;
-      const b = bandas[k];
-      out.push({
-        k,
-        texto: largo ? MESES_LARGOS[b.mes] : MESES_CORTOS[b.mes],
-        centro: xBorde(b.inicio + b.dias / 2),
-        borde: xBorde(b.inicio)
-      });
+  const etiquetasDia = $derived.by(() => {
+    if (!modoDias) return [];
+    const paso = [1, 2, 5, 10].find((p) => pxDia * p >= 28) ?? 10;
+    const out: { d: number; texto: string }[] = [];
+    for (let d = Math.ceil(vi - 0.5); d + 0.5 <= vf; d++) {
+      const f = deAbs(d);
+      const finMes = diasDelMes(f.anio, f.mes);
+      const ok = paso === 1 || f.dia === 1 || (f.dia % paso === 0 && finMes - f.dia >= paso / 2);
+      if (ok && dentro(x(d))) out.push({ d, texto: String(f.dia) });
     }
     return out;
   });
 
-  // Segunda fila del eje cuando la ventana cruza de año: cada año centrado bajo
-  // sus meses. Si su tramo es más angosto que el número (~27px: en un teléfono,
-  // un solo diciembre mide ~20px), el primer y el último año se pegan al borde de
-  // su tramo en vez de desaparecer; uno de en medio nunca es tan angosto.
-  const segmentosAnio = $derived.by(() => {
-    if (!conAnios) return [];
-    const segs: { anio: number; x0: number; x1: number }[] = [];
-    for (const b of bandas) {
-      const x1 = xBorde(b.inicio + b.dias);
-      const ult = segs[segs.length - 1];
-      if (ult && ult.anio === b.anio) ult.x1 = x1;
-      else segs.push({ anio: b.anio, x0: xBorde(b.inicio), x1 });
+  const etiquetasMes = $derived.by(() => {
+    if (modoDias) return { lineas: [] as number[], textos: [] as { x: number; texto: string; mi: number }[] };
+    const pxMes = pxDia * 30.44;
+    const largo = pxMes >= 84;
+    const paso = [1, 2, 3, 6, 12].find((p) => pxMes * p >= (largo ? 72 : 30)) ?? 12;
+    const ini = deAbs(vi);
+    const fin = deAbs(vf - 1e-6);
+    const lineas: number[] = [];
+    const textos: { x: number; texto: string; mi: number }[] = [];
+    for (let mi = ini.anio * 12 + ini.mes; mi <= fin.anio * 12 + fin.mes; mi++) {
+      if (mi % paso !== 0) continue;
+      const a = absDeMes(mi);
+      const b = absDeMes(mi + paso);
+      const xa = xBorde(a);
+      if (xa > IZQ + 0.5 && xa < IZQ + plotW - 0.5) lineas.push(xa);
+      // Centrado en la parte visible de su tramo, si ahí cabe.
+      // El texto va centrado en SU mes (la parte visible) y cabe si hay espacio
+      // en todo el tramo hasta la siguiente marca.
+      const texto = largo ? MESES_LARGOS[mi % 12] : MESES_CORTOS[mi % 12];
+      const w = texto.length * 6.2;
+      const va = Math.max(xa, IZQ);
+      const vb = Math.min(xBorde(b), IZQ + plotW);
+      const finMes = Math.min(xBorde(a + diasDelMes(Math.floor(mi / 12), mi % 12)), IZQ + plotW);
+      if (vb - va >= w && finMes > va) {
+        const cx = Math.min(Math.max((va + finMes) / 2, IZQ + w / 2), IZQ + plotW - w / 2);
+        textos.push({ x: cx, texto, mi });
+      }
     }
-    return segs.flatMap((s, k) => {
-      if (s.x1 - s.x0 >= 28) return [{ anio: s.anio, x: (s.x0 + s.x1) / 2, ancla: 'middle' }];
-      if (k === 0) return [{ anio: s.anio, x: s.x0, ancla: 'start' }];
-      if (k === segs.length - 1) return [{ anio: s.anio, x: s.x1, ancla: 'end' }];
-      return [];
+    return { lineas, textos };
+  });
+
+  // Fila de contexto: con días, "octubre 2026"; con meses, el año. Cada etiqueta
+  // va al inicio de su tramo y se queda pegada a la orilla izquierda mientras su
+  // tramo siga a la vista (como un encabezado fijo); la siguiente la empuja.
+  const contexto = $derived.by(() => {
+    const ini = deAbs(vi);
+    const fin = deAbs(vf - 1e-6);
+    const segs: { inicio: number; texto: string }[] = [];
+    if (modoDias) {
+      for (let mi = ini.anio * 12 + ini.mes; mi <= fin.anio * 12 + fin.mes; mi++) {
+        segs.push({ inicio: absDeMes(mi), texto: `${MESES_LARGOS[mi % 12]} ${Math.floor(mi / 12)}` });
+      }
+    } else {
+      for (let a = ini.anio; a <= fin.anio; a++) {
+        segs.push({ inicio: Date.UTC(a, 0, 1) / 86_400_000, texto: String(a) });
+      }
+    }
+    const out: { x: number; texto: string }[] = [];
+    segs.forEach((s, k) => {
+      const w = s.texto.length * 6.6;
+      let px = Math.max(xBorde(s.inicio), IZQ);
+      const sig = segs[k + 1];
+      if (sig) px = Math.min(px, xBorde(sig.inicio) - w - 10);
+      if (px + w > IZQ && px < IZQ + plotW) out.push({ x: px, texto: s.texto });
     });
+    return out;
+  });
+
+  // Rejilla vertical con días: al empezar cada mes.
+  const lineasDias = $derived.by(() => {
+    if (!modoDias) return [];
+    const ini = deAbs(vi);
+    const fin = deAbs(vf - 1e-6);
+    const out: number[] = [];
+    for (let mi = ini.anio * 12 + ini.mes + 1; mi <= fin.anio * 12 + fin.mes; mi++) out.push(xBorde(absDeMes(mi)));
+    return out;
   });
 
   // --- La línea y los puntos ----------------------------------------------
   const trazo = $derived.by(() => {
     let d = '';
     let previo = -Infinity;
-    for (const p of pts) {
-      d += `${p.i - previo > HUECO_MAX_DIAS ? 'M' : 'L'}${x(p.i)},${y(p.peso)} `;
-      previo = p.i;
+    for (const p of dibujados) {
+      d += `${p.d - previo > HUECO_MAX_DIAS ? 'M' : 'L'}${x(p.d)},${y(p.peso)} `;
+      previo = p.d;
     }
     return d.trim();
   });
-  const hayLinea = $derived(pts.some((p, k) => k > 0 && p.i - pts[k - 1].i <= HUECO_MAX_DIAS));
+  const hayLinea = $derived(dibujados.some((p, k) => k > 0 && p.d - dibujados[k - 1].d <= HUECO_MAX_DIAS));
 
-  // Un marcador por pesada mientras quepan (~10px por punto o más). Con 3 meses
-  // pesados todos los días serían ~90 puntos encimados: entonces solo se dibujan
-  // el último, el activo y los puntos aislados (los que ningún segmento toca, que
-  // si no desaparecerían), y la línea lleva el resto.
-  const conMarcadores = $derived(pts.length * 10 <= plotW);
-  function marcadorVisible(k: number): boolean {
-    if (conMarcadores || k === pts.length - 1 || k === activo) return true;
-    const unidoAntes = k > 0 && pts[k].i - pts[k - 1].i <= HUECO_MAX_DIAS;
-    const unidoDespues = k < pts.length - 1 && pts[k + 1].i - pts[k].i <= HUECO_MAX_DIAS;
+  // Un marcador por pesada mientras quepan (~10px por punto o más); si no, solo
+  // el último, el activo y los aislados (los que ningún segmento toca).
+  const conMarcadores = $derived(vis.length * 10 <= plotW);
+  function marcadorVisible(k: number, fecha: string): boolean {
+    if (conMarcadores || k === rangoVis.b - 1 || fecha === activoFecha) return true;
+    const unidoAntes = k > 0 && pts[k].d - pts[k - 1].d <= HUECO_MAX_DIAS;
+    const unidoDespues = k < pts.length - 1 && pts[k + 1].d - pts[k].d <= HUECO_MAX_DIAS;
     return !unidoAntes && !unidoDespues;
   }
 
-  // Resumen de la ventana (primer y último peso) -- el titular que la gráfica ilustra.
+  // Resumen de lo que se ve (primer y último peso).
   const resumen = $derived.by(() => {
-    if (pts.length === 0) return null;
-    const primero = pts[0];
-    const ultimo = pts[pts.length - 1];
+    if (vis.length === 0) return null;
+    const primero = vis[0];
+    const ultimo = vis[vis.length - 1];
     const cambio = Math.round((ultimo.peso - primero.peso) * 10) / 10;
-    return { primero: primero.peso, ultimo: ultimo.peso, cambio, n: pts.length };
+    return { primero: primero.peso, ultimo: ultimo.peso, cambio, n: vis.length };
   });
 
-  const periodo = $derived(meses === 1 ? 'del mes' : `de ${meses} meses`);
+  const mesesAtajo = $derived.by(() => {
+    const a = deAbs(pIni);
+    const b = deAbs(pFin - 1);
+    return (b.anio - a.anio) * 12 + (b.mes - a.mes) + 1;
+  });
+  const periodo = $derived.by(() => {
+    if (!personalizada) return mesesAtajo === 1 ? 'del mes' : `de ${mesesAtajo} meses`;
+    const a = Math.round(vi);
+    const b = Math.round(vf) - 1;
+    return `del ${textoDia(a, deAbs(a).anio !== deAbs(b).anio)} al ${textoDia(b, true)}`;
+  });
   const sinPesos = $derived(
-    meses === 1 ? 'Aún no hay pesos capturados este mes.' : `Aún no hay pesos capturados en estos ${meses} meses.`
+    mesesAtajo === 1 ? 'Aún no hay pesos capturados este mes.' : `Aún no hay pesos capturados en estos ${mesesAtajo} meses.`
   );
 
   const descripcion = $derived.by(() => {
-    if (!resumen || !escala) return sinPesos;
-    const pesos = pts.map((p) => p.peso);
+    if (!resumen) return 'Sin pesos en este tramo.';
+    const pesos = vis.map((p) => p.peso);
     return `Peso ${periodo}: ${resumen.n} mediciones, de ${fmt(resumen.primero)} a ${fmt(resumen.ultimo)} kg; mínimo ${fmt(Math.min(...pesos))}, máximo ${fmt(Math.max(...pesos))}.`;
   });
 
-  // --- Rueda del mouse: acercar / alejar -----------------------------------
-  // Rueda hacia arriba acerca (menos meses) y hacia abajo aleja (más), como en un
-  // mapa; mueve el mismo zoom del selector, un nivel por paso.
-  //  - Un paso por "muesca" de la rueda (~100px de recorrido). Un touchpad manda
-  //    muchos eventos chicos por gesto: se acumulan hasta el umbral.
-  //  - Tras cada paso hay una pausa en la que se ignora lo que siga llegando (la
-  //    inercia, o dos muescas seguidas), para no pasar de 1 mes a todo de un golpe.
-  //  - Donde ya no hay más zoom (1 mes al acercar, el tope al alejar) la rueda NO
-  //    se intercepta y el scroll mueve la página -- salvo en el mismo gesto que
-  //    acaba de hacer zoom: ahí se traga lo que quede, o una sola vuelta de rueda
-  //    haría zoom y además brincaría la página. Un gesto nuevo (tras una pausa) ya pasa.
-  //  - Ctrl/⌘ + rueda (y el pellizco del touchpad, que llega así) es el zoom de la
-  //    PÁGINA: no se toca.
-  //  - Un evento que NO es cancelable es parte de un scroll que el navegador ya
-  //    empezó (p. ej. el pase de un gesto en el tope, hace menos de medio segundo):
-  //    no hay forma de frenarlo, así que no se le suma un zoom -- sería zoom y
-  //    scroll de la página a la vez.
-  const RUEDA_UMBRAL = 60;
-  const RUEDA_ESPERA_MS = 260;
-  const RUEDA_PAUSA_MS = 250;
-  let ruedaAcum = 0;
-  let ruedaUltimoPaso = -Infinity;
-  let ruedaUltimoEvento = -Infinity;
-  let ruedaEnGesto = false;
+  // --- Hover / toque / teclado -------------------------------------------
+  // El activo se guarda por FECHA (no por índice): al hacer zoom los índices cambian.
+  let activoFecha = $state<string | null>(null);
+  const puntoActivo = $derived(activoFecha !== null ? (vis.find((p) => p.fecha === activoFecha) ?? null) : null);
 
-  // Acción (y no `onwheel`): el listener tiene que ser NO pasivo para poder frenar
-  // el scroll de la página con preventDefault.
+  function masCercano(pxLienzo: number): string | null {
+    if (vis.length === 0) return null;
+    let mejor = vis[0];
+    let dist = Infinity;
+    for (const p of vis) {
+      const dd = Math.abs(x(p.d) - pxLienzo);
+      if (dd < dist) {
+        dist = dd;
+        mejor = p;
+      }
+    }
+    return mejor.fecha;
+  }
+
+  let lienzoEl = $state<HTMLDivElement | null>(null);
+  const pxEnLienzo = (clientX: number) => (lienzoEl ? clientX - lienzoEl.getBoundingClientRect().left : 0);
+
+  // --- Zoom con la rueda ----------------------------------------------------
+  //  - Rueda vertical: acerca (arriba) / aleja (abajo) dejando fijo el día bajo
+  //    el cursor. Continuo: un touchpad da un zoom suave, una muesca ≈ 22%.
+  //  - Rueda horizontal o Shift+rueda: se mueve en el tiempo.
+  //  - Si ya no se puede ir más en esa dirección (máximo acercamiento, todo el
+  //    historial a la vista, la orilla), la rueda NO se intercepta y mueve la
+  //    página -- salvo justo después de haber hecho zoom en ese mismo gesto (se
+  //    traga ~300ms, para que llegar al tope no brinque la página).
+  //  - Ctrl/⌘ + rueda (y el pellizco del touchpad) es el zoom de la PÁGINA: no se toca.
+  //  - Un evento NO cancelable es parte de un scroll que el navegador ya empezó:
+  //    no se le suma zoom (sería zoom y scroll de la página a la vez).
+  const GESTO_MS = 300;
+  let ultimoMovimiento = -Infinity;
+
   function rueda(nodo: HTMLElement) {
     function alRueda(e: WheelEvent) {
       if (e.ctrlKey || e.metaKey || !e.cancelable) return;
-      // A píxeles: Firefox con mouse manda líneas (deltaMode 1) en vez de píxeles.
-      const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
-      if (dy === 0) return; // scroll horizontal puro
-      const direccion: -1 | 1 = dy < 0 ? -1 : 1;
-
-      const ahora = performance.now();
-      if (ahora - ruedaUltimoEvento > RUEDA_PAUSA_MS) {
-        // Pasó una pausa: es otro gesto.
-        ruedaAcum = 0;
-        ruedaEnGesto = false;
+      const f = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+      let dx = e.deltaX * f;
+      let dy = e.deltaY * f;
+      if (e.shiftKey && dx === 0) {
+        dx = dy;
+        dy = 0;
       }
-      ruedaUltimoEvento = ahora;
+      const ahora = performance.now();
+      const enGesto = ahora - ultimoMovimiento < GESTO_MS;
 
-      const disponible = direccion < 0 ? puedeAcercar : puedeAlejar;
-      if (!disponible && !ruedaEnGesto) return; // sin a dónde ir: el scroll sigue de largo
+      if (Math.abs(dx) > Math.abs(dy)) {
+        const puede = dx < 0 ? vi > D0 + 1e-6 : vf < D1 - 1e-6;
+        if (!puede) {
+          if (enGesto) e.preventDefault();
+          return;
+        }
+        e.preventDefault();
+        fijar(vi + (dx / plotW) * span, span);
+        ultimoMovimiento = ahora;
+        return;
+      }
+
+      if (dy === 0) return;
+      const puede = dy < 0 ? span > MIN_DIAS + 1e-6 : span < total - 1e-6;
+      if (!puede) {
+        if (enGesto) e.preventDefault();
+        return;
+      }
       e.preventDefault();
-      if (!disponible) return; // gesto que ya hizo zoom y llegó al tope: se traga el resto
-      if (ahora - ruedaUltimoPaso < RUEDA_ESPERA_MS) return;
-
-      if (Math.sign(ruedaAcum) !== direccion) ruedaAcum = 0; // cambió de sentido
-      ruedaAcum += dy;
-      if (Math.abs(ruedaAcum) < RUEDA_UMBRAL) return;
-      ruedaAcum = 0;
-      ruedaUltimoPaso = ahora;
-      ruedaEnGesto = true;
-      onZoom?.(direccion);
+      const px = pxEnLienzo(e.clientX);
+      const t = lienzoEl ? Math.min(Math.max((px - IZQ) / plotW, 0), 1) : 1;
+      const nuevo = Math.min(Math.max(span * Math.exp(dy * ZOOM_POR_PX), MIN_DIAS), total);
+      const centro = vi + t * span;
+      fijar(centro - t * nuevo, nuevo);
+      ultimoMovimiento = ahora;
+      if (activoFecha !== null && lienzoEl) activoFecha = masCercano(px);
     }
     nodo.addEventListener('wheel', alRueda, { passive: false });
     return { destroy: () => nodo.removeEventListener('wheel', alRueda) };
   }
 
-  // --- Hover / toque / teclado -------------------------------------------
-  let activo = $state<number | null>(null);
-  const puntoActivo = $derived(activo !== null ? (pts[activo] ?? null) : null);
+  // --- Arrastrar para moverse (mouse) --------------------------------------
+  let arrastre = $state<{ x0: number; vi0: number; movido: boolean } | null>(null);
+  const sePuedeMover = $derived(span < total - 1e-6);
 
-  // Al cambiar de ventana (otros puntos), no queda un índice apuntando a nada.
-  $effect(() => {
-    void pts;
-    activo = null;
-  });
-
-  function masCercano(pxLienzo: number): number | null {
-    if (pts.length === 0) return null;
-    let mejor = 0;
-    let dist = Infinity;
-    pts.forEach((p, k) => {
-      const d = Math.abs(x(p.i) - pxLienzo);
-      if (d < dist) {
-        dist = d;
-        mejor = k;
-      }
-    });
-    return mejor;
+  function alBajar(e: PointerEvent) {
+    if (e.pointerType === 'mouse') {
+      if (e.button !== 0) return;
+      arrastre = { x0: e.clientX, vi0: vi, movido: false };
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    }
+    activoFecha = masCercano(pxEnLienzo(e.clientX));
   }
 
   function alMover(e: PointerEvent) {
-    // La capa transparente empieza en IZQ del lienzo; se pasa a coordenadas del lienzo.
-    const r = (e.currentTarget as SVGRectElement).getBoundingClientRect();
-    activo = masCercano(e.clientX - r.left + IZQ);
+    const a = arrastre;
+    if (a && e.pointerType === 'mouse') {
+      const dPx = e.clientX - a.x0;
+      if (!a.movido && Math.abs(dPx) > 3 && sePuedeMover) a.movido = true;
+      if (a.movido) {
+        fijar(a.vi0 - (dPx / plotW) * span, span);
+        activoFecha = null;
+        return;
+      }
+    }
+    activoFecha = masCercano(pxEnLienzo(e.clientX));
+  }
+
+  function alSoltar() {
+    arrastre = null;
   }
 
   function alSalir(e: PointerEvent) {
-    // Con el dedo, soltar dispara "salir": el tooltip se quedaría imposible de
-    // leer. En touch se queda hasta tocar fuera (ver alTocarFuera).
-    if (e.pointerType !== 'touch') activo = null;
+    if (e.pointerType !== 'touch' && !arrastre) activoFecha = null;
   }
 
-  let lienzoEl = $state<HTMLDivElement | null>(null);
   function alTocarFuera(e: PointerEvent) {
-    if (activo !== null && e.pointerType === 'touch' && lienzoEl && !lienzoEl.contains(e.target as Node)) {
-      activo = null;
+    if (activoFecha !== null && e.pointerType === 'touch' && lienzoEl && !lienzoEl.contains(e.target as Node)) {
+      activoFecha = null;
     }
   }
 
+  // Zoom desde teclado (+ / -), centrado en el punto activo o en la vista.
+  function zoomTeclado(factor: number) {
+    const p = puntoActivo;
+    const t = p ? Math.min(Math.max((p.d + 0.5 - vi) / span, 0), 1) : 0.5;
+    const nuevo = Math.min(Math.max(span * factor, MIN_DIAS), total);
+    fijar(vi + t * span - t * nuevo, nuevo);
+  }
+
   function alTeclear(e: KeyboardEvent) {
-    if (pts.length === 0) return;
-    const ultimo = pts.length - 1;
-    if (e.key === 'ArrowRight') activo = activo === null ? 0 : Math.min(activo + 1, ultimo);
-    else if (e.key === 'ArrowLeft') activo = activo === null ? ultimo : Math.max(activo - 1, 0);
-    else if (e.key === 'Home') activo = 0;
-    else if (e.key === 'End') activo = ultimo;
-    else if (e.key === 'Escape') activo = null;
-    else return;
+    if (e.key === '+' || e.key === '=') zoomTeclado(1 / 1.5);
+    else if (e.key === '-' || e.key === '_') zoomTeclado(1.5);
+    else if (e.key === '0') elegir(rango);
+    else if (vis.length === 0) return;
+    else {
+      const idx = vis.findIndex((p) => p.fecha === activoFecha);
+      const ultimo = vis.length - 1;
+      let n: number;
+      if (e.key === 'ArrowRight') n = idx < 0 ? 0 : Math.min(idx + 1, ultimo);
+      else if (e.key === 'ArrowLeft') n = idx < 0 ? ultimo : Math.max(idx - 1, 0);
+      else if (e.key === 'Home') n = 0;
+      else if (e.key === 'End') n = ultimo;
+      else if (e.key === 'Escape') {
+        activoFecha = null;
+        e.preventDefault();
+        return;
+      } else return;
+      activoFecha = vis[n].fecha;
+    }
     e.preventDefault();
   }
 
-  // Al entrar con Tab, se arranca en la medición más reciente (la que se quiere ver).
   function alEnfocar() {
-    if (activo === null && pts.length > 0) activo = pts.length - 1;
+    if (activoFecha === null && vis.length > 0) activoFecha = vis[vis.length - 1].fecha;
   }
 
-  // El tooltip se mide para poder centrarlo sobre su punto SIN salirse del lienzo
-  // (con offsetWidth/offsetHeight, que sí cuentan el borde: con clientWidth el
-  // globo se asomaba 2px por el lado donde lo frena el borde del lienzo).
   let tipW = $state(0);
   let tipH = $state(0);
   const tip = $derived.by(() => {
     const p = puntoActivo;
     if (!p || tipW === 0) return null;
-    const px = x(p.i);
+    const px = x(p.d);
     const py = y(p.peso);
     const left = Math.min(Math.max(px - tipW / 2, 0), Math.max(ancho - tipW, 0));
-    // Arriba del punto; si no cabe (punto cerca del tope), abajo.
     const arriba = py - tipH - 12;
     const top = arriba >= 0 ? arriba : py + 14;
     return { left, top };
   });
+
+  const uid = $props.id();
+  const idClip = `clip-peso-${uid}`;
 </script>
 
 <svelte:window onpointerdown={alTocarFuera} />
 
-<section class="grafica" aria-label={meses === 1 ? 'Gráfica del peso del mes' : `Gráfica del peso de ${meses} meses`}>
+<section class="grafica" aria-label="Gráfica del peso">
   <header class="grafica-cabecera">
     <h2>Peso {periodo} <span class="unidad">(kg)</span></h2>
     {#if resumen}
       <p class="resumen">
         {#if resumen.n === 1}
-          <!-- Un solo peso: no hay "de A a B" ni cambio que contar. -->
           {fmt(resumen.ultimo)} kg
         {:else}
           {fmt(resumen.primero)} → {fmt(resumen.ultimo)} kg
@@ -444,22 +541,20 @@
     {/if}
   </header>
 
-  <!-- El zoom: solo mueve la gráfica (la tabla y el mes en pantalla no cambian). El
-       title avisa del atajo de la rueda sin tapar el tooltip de la gráfica (esta
-       fila no es parte del área que escucha la rueda). -->
+  <!-- Atajos de zoom: solo mueven la gráfica (la tabla y el mes no cambian). -->
   <div
     class="rangos"
     role="group"
     aria-label="Meses que abarca la gráfica"
-    title="También puedes acercar y alejar con la rueda del mouse sobre la gráfica"
+    title="Rueda del mouse sobre la gráfica: acercar y alejar · Arrastrar: moverse en el tiempo · Doble clic: volver"
   >
     {#each OPCIONES as o (o.valor)}
       <button
         type="button"
         class="rango"
-        class:activo={rango === o.valor}
-        aria-pressed={rango === o.valor}
-        onclick={() => onRango(o.valor)}
+        class:activo={rango === o.valor && !personalizada}
+        aria-pressed={rango === o.valor && !personalizada}
+        onclick={() => elegir(o.valor)}
       >{o.texto}</button>
     {/each}
   </div>
@@ -471,9 +566,6 @@
     {#if pts.length === 0}
       <p class="vacia">{sinPesos}</p>
     {:else}
-      <!-- Widget propio: role="application" + aria-label que dice cómo se usa (flechas).
-           Svelte no reconoce "application" como interactivo y avisa por el tabindex y
-           por los handlers de teclado; aquí son justamente lo que lo hace un widget. -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
       <div
         class="lienzo"
@@ -481,64 +573,69 @@
         bind:clientWidth={ancho}
         bind:this={lienzoEl}
         role="application"
-        aria-label="Peso por día. Usa las flechas izquierda y derecha para recorrer las mediciones."
+        aria-label="Peso por día. Flechas izquierda y derecha: recorrer las mediciones. Más y menos: acercar y alejar. Cero: volver al rango elegido."
         tabindex="0"
         onkeydown={alTeclear}
         onfocus={alEnfocar}
-        onblur={() => (activo = null)}
+        onblur={() => (activoFecha = null)}
       >
         {#if ancho > 0 && escala}
           <svg width={ancho} height={alto} viewBox="0 0 {ancho} {alto}" role="img" aria-label={descripcion}>
-            <!-- Rejilla: un hairline recesivo por marca del eje Y, con su número. -->
+            <defs>
+              <!-- Lo que sale de la vista se recorta (con aire para los marcadores). -->
+              <clipPath id={idClip}>
+                <rect x={IZQ - 9} y={0} width={plotW + 18} height={ARR + plotH + 9} />
+              </clipPath>
+            </defs>
+
             {#each escala.marcas as v (v)}
               <line class="rejilla" x1={IZQ} x2={ancho - DER} y1={y(v)} y2={y(v)} />
               <text class="eje" x={IZQ - 8} y={y(v)} text-anchor="end" dominant-baseline="middle">{textoMarca(v)}</text>
             {/each}
 
-            <!-- Eje X: los días del mes, o los meses (con una fila de años si cruza de año). -->
-            {#if meses === 1}
-              {#each diasConEtiqueta as d (d)}
-                <text class="eje" x={x(d - 1)} y={ARR + plotH + 18} text-anchor="middle">{d}</text>
-              {/each}
-            {:else}
-              {#each etiquetasMes as e (e.k)}
-                {#if e.k > 0}
-                  <line class="rejilla" x1={e.borde} x2={e.borde} y1={ARR} y2={ARR + plotH} />
-                {/if}
-                <text class="eje" x={e.centro} y={ARR + plotH + 18} text-anchor="middle">{e.texto}</text>
-              {/each}
-              {#each segmentosAnio as s (s.anio)}
-                <text class="eje eje-anio" x={s.x} y={ARR + plotH + 35} text-anchor={s.ancla}>{s.anio}</text>
-              {/each}
-            {/if}
-
-            <!-- Cruz vertical: busca el DÍA (nadie apunta a una línea de 2px). -->
-            {#if puntoActivo}
-              <line class="cruz" x1={x(puntoActivo.i)} x2={x(puntoActivo.i)} y1={ARR} y2={ARR + plotH} />
-            {/if}
-
-            {#if hayLinea}
-              <path class="linea" d={trazo} stroke={COLOR} />
-            {/if}
-
-            <!-- Marcadores: 8px de diámetro + anillo de 2px del color de la superficie
-                 (para que se distingan donde la línea los cruza). El activo crece. -->
-            {#each pts as p, k (p.fecha)}
-              {#if marcadorVisible(k)}
-                <circle cx={x(p.i)} cy={y(p.peso)} r={k === activo ? 8 : 6} fill="#ffffff" />
-                <circle cx={x(p.i)} cy={y(p.peso)} r={k === activo ? 6 : 4} fill={COLOR} />
-              {/if}
+            <!-- Eje X -->
+            {#each lineasDias as lx (lx)}
+              <line class="rejilla" x1={lx} x2={lx} y1={ARR} y2={ARR + plotH} />
+            {/each}
+            {#each etiquetasDia as e (e.d)}
+              <text class="eje" x={x(e.d)} y={ARR + plotH + 18} text-anchor="middle">{e.texto}</text>
+            {/each}
+            {#each etiquetasMes.lineas as lx (lx)}
+              <line class="rejilla" x1={lx} x2={lx} y1={ARR} y2={ARR + plotH} />
+            {/each}
+            {#each etiquetasMes.textos as e (e.mi)}
+              <text class="eje" x={e.x} y={ARR + plotH + 18} text-anchor="middle">{e.texto}</text>
+            {/each}
+            {#each contexto as c (c.texto)}
+              <text class="eje eje-anio" x={c.x} y={ARR + plotH + 35} text-anchor="start">{c.texto}</text>
             {/each}
 
-            <!-- Etiqueta directa: solo el valor final (no un número en cada punto), a la
-                 DERECHA de su punto: la serie termina ahí, así que nada la cruza. Si
-                 no cabe a la derecha (último día pegado al borde), va arriba. -->
-            {#if pts.length > 0}
-              {@const u = pts[pts.length - 1]}
-              {@const derecha = x(u.i) <= ancho - 30}
+            {#if puntoActivo}
+              <line class="cruz" x1={x(puntoActivo.d)} x2={x(puntoActivo.d)} y1={ARR} y2={ARR + plotH} />
+            {/if}
+
+            <g clip-path="url(#{idClip})">
+              {#if hayLinea}
+                <path class="linea" d={trazo} stroke={COLOR} />
+              {/if}
+
+              {#each vis as p (p.fecha)}
+                {#if marcadorVisible(p.k, p.fecha)}
+                  {@const act = p.fecha === activoFecha}
+                  <circle cx={x(p.d)} cy={y(p.peso)} r={act ? 8 : 6} fill="#ffffff" />
+                  <circle cx={x(p.d)} cy={y(p.peso)} r={act ? 6 : 4} fill={COLOR} />
+                {/if}
+              {/each}
+            </g>
+
+            <!-- Solo cuando el último peso del historial está a la vista (la serie
+                 termina ahí); a media serie la línea seguiría y lo taparía. -->
+            {#if vis.length > 0 && vis[vis.length - 1].k === pts.length - 1}
+              {@const u = vis[vis.length - 1]}
+              {@const derecha = x(u.d) <= ancho - 30}
               <text
                 class="valor-final"
-                x={derecha ? x(u.i) + 10 : x(u.i)}
+                x={derecha ? x(u.d) + 10 : x(u.d)}
                 y={derecha ? y(u.peso) : y(u.peso) - 12}
                 text-anchor={derecha ? 'start' : 'end'}
                 dominant-baseline={derecha ? 'middle' : 'auto'}
@@ -548,6 +645,8 @@
             <!-- Capa transparente que recibe el puntero sobre toda el área de la gráfica. -->
             <rect
               class="captura"
+              class:movible={sePuedeMover}
+              class:arrastrando={arrastre?.movido}
               role="presentation"
               x={IZQ}
               y={ARR}
@@ -555,8 +654,11 @@
               height={plotH}
               fill="transparent"
               onpointermove={alMover}
-              onpointerdown={alMover}
+              onpointerdown={alBajar}
+              onpointerup={alSoltar}
+              onpointercancel={alSoltar}
               onpointerleave={alSalir}
+              ondblclick={() => elegir(rango)}
             />
           </svg>
 
@@ -590,8 +692,6 @@
 </section>
 
 <style>
-  /* Misma tarjeta que la tabla de abajo (borde, radio, fondo), para que se lean
-     como un solo bloque. */
   .grafica {
     padding: 0.85rem 1rem 0.6rem;
     border: 1px solid var(--line);
@@ -627,8 +727,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Los colores de sube/baja salen de los tokens del filtro de daltonismo (los
-     mismos de los triangulitos de la tabla), y además van con símbolo y texto. */
   .cambio {
     margin-left: 0.35rem;
     font-weight: 600;
@@ -649,9 +747,6 @@
     font-size: 0.7em;
   }
 
-  /* Selector de rango: pastillas conectadas. Lo seleccionado va en negro sólido,
-     como el resto de los "esto está activo" de la app (la señal es el relleno y
-     el aria-pressed, no un color); el hover es el volt de los demás botones. */
   .rangos {
     display: inline-flex;
     max-width: 100%;
@@ -691,8 +786,6 @@
     outline-offset: 1px;
   }
 
-  /* En el teléfono el selector ocupa todo el ancho (cada opción se reparte el
-     espacio) y los botones son más altos para el dedo. */
   @media (max-width: 520px) {
     .rangos {
       display: flex;
@@ -712,8 +805,6 @@
     color: var(--ink);
   }
 
-  /* Mientras llega el historial de un rango mayor se conserva lo que ya estaba
-     dibujado, atenuado: sin parpadeo ni salto de altura. */
   .area {
     transition: opacity 0.15s;
   }
@@ -738,9 +829,8 @@
     position: relative;
     width: 100%;
     border-radius: 8px;
-    /* Con el dedo, arrastrar en vertical sigue haciendo scroll de la página;
-       solo el arrastre horizontal recorre la gráfica. */
     touch-action: pan-y;
+    user-select: none;
   }
 
   .lienzo:focus-visible {
@@ -750,7 +840,7 @@
 
   svg {
     display: block;
-    overflow: visible;
+    overflow: hidden;
     font-family: inherit;
   }
 
@@ -781,8 +871,6 @@
     stroke-linecap: round;
   }
 
-  /* El texto lleva tinta de texto, nunca el color de la serie; el halo blanco lo
-     separa de la línea que pase por detrás. */
   .valor-final {
     fill: var(--ink);
     font-size: 12px;
@@ -798,8 +886,14 @@
     cursor: crosshair;
   }
 
-  /* Tooltip: el VALOR manda (grande, en tinta fuerte); la fecha y el cambio van
-     en secundario. */
+  .captura.movible {
+    cursor: grab;
+  }
+
+  .captura.arrastrando {
+    cursor: grabbing;
+  }
+
   .tip {
     position: absolute;
     z-index: 2;

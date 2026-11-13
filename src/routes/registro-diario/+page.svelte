@@ -269,7 +269,8 @@
         .sort((a, b) => a.fecha.localeCompare(b.fecha));
     } catch {
       // Sin historial no hay zoom: se regresa al mes, que sí se tiene.
-      errorHistorial = 'No se pudo cargar el historial de pesos.';
+      // (Si se estaba en 1 mes no se avisa: no se pidió nada que falte.)
+      if (rango !== 1) errorHistorial = 'No se pudo cargar el historial de pesos.';
       rango = 1;
     } finally {
       cargandoHistorial = false;
@@ -293,13 +294,13 @@
     try {
       const guardado = localStorage.getItem(CLAVE_RANGO);
       const r = guardado === null ? NaN : Number(guardado);
-      if (RANGOS.includes(r) && r !== 1) {
-        rango = r;
-        void cargarHistorial();
-      }
+      if (RANGOS.includes(r) && r !== 1) rango = r;
     } catch {
       // Sin almacenamiento: se queda en 1 mes.
     }
+    // El historial se pide siempre (una vez): con él la rueda puede alejar más
+    // allá del mes sin esperar a que se toque el selector.
+    void cargarHistorial();
   });
 
   // Hay zoom de verdad solo cuando ya llegó el historial; antes, es el mes.
@@ -322,52 +323,34 @@
   }
   const ventana = $derived(ventanaDe(zoomActivo ? rango : 1));
 
-  // Rueda del mouse sobre la gráfica: sube o baja por los mismos rangos del
-  // selector (RANGOS va de más cerca a más lejos). Se salta los que se verían
-  // igual que lo que ya hay en pantalla -- con 4 meses de historial, "6 meses",
-  // "1 año" y "Todo" abarcan lo mismo, y la rueda no debe girar sin que nada
-  // cambie. null = no hay a dónde ir: la gráfica deja entonces que el scroll
-  // mueva la página. Mientras el historial no ha llegado no se sabe cuáles se
-  // repiten, así que se va al vecino de la lista.
-  function rangoVecino(dir: -1 | 1): number | null {
-    const visible = ventana.desde;
-    for (let k = RANGOS.indexOf(rango) + dir; k >= 0 && k < RANGOS.length; k += dir) {
-      if (historial === null || ventanaDe(RANGOS[k]).desde !== visible) return RANGOS[k];
-    }
-    return null;
-  }
-  const rangoAcercar = $derived(rangoVecino(-1));
-  const rangoAlejar = $derived(rangoVecino(1));
+  // Hasta dónde se puede alejar o desplazar la gráfica (zoom continuo con la
+  // rueda / arrastrando): del mes del primer peso al fin del mes en pantalla.
+  // Sin historial (aún no llega o falló), solo el mes.
+  const dominio = $derived(historial !== null ? ventanaDe(0) : { desde, hasta });
 
-  function zoomRueda(dir: -1 | 1) {
-    const r = dir < 0 ? rangoAcercar : rangoAlejar;
-    if (r !== null) elegirRango(r);
-  }
-
+  // Todos los pesos del dominio. Los del mes en pantalla salen de `filas` (los
+  // mismos de la tabla, con su delta de los triangulitos), así gráfica y tabla
+  // nunca discrepan; los de meses anteriores, del historial, con su delta contra
+  // el peso anterior.
   const puntosGrafica = $derived.by(() => {
+    const delMes = filas
+      .filter((f) => f.peso !== null)
+      .map((f) => ({ fecha: f.fecha, peso: f.peso as number, delta: f.deltaPeso }))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
     const pesos = historial;
-    if (!zoomActivo || pesos === null) {
-      return filas
-        .filter((f) => f.peso !== null)
-        .map((f) => ({ fecha: f.fecha, peso: f.peso as number, delta: f.deltaPeso }))
-        .sort((a, b) => a.fecha.localeCompare(b.fecha));
-    }
-    // El delta de cada punto es contra el peso anterior de TODO el historial
-    // (también el de antes de la ventana), como el de los triangulitos.
+    if (pesos === null) return delMes;
     const out: { fecha: string; peso: number; delta: number | null }[] = [];
     let previo: number | null = null;
     for (const p of pesos) {
-      if (p.fecha > ventana.hasta) break;
-      if (p.fecha >= ventana.desde) {
-        out.push({
-          fecha: p.fecha,
-          peso: p.peso,
-          delta: previo !== null ? Math.round((p.peso - previo) * 10) / 10 : null
-        });
-      }
+      if (p.fecha >= desde) break;
+      out.push({
+        fecha: p.fecha,
+        peso: p.peso,
+        delta: previo !== null ? Math.round((p.peso - previo) * 10) / 10 : null
+      });
       previo = p.peso;
     }
-    return out;
+    return [...out, ...delMes];
   });
 
   // Igual que en la columna Fecha de la tabla ("Vie 6 nov 2026").
@@ -458,13 +441,12 @@
       puntos={puntosGrafica}
       desde={ventana.desde}
       hasta={ventana.hasta}
+      dominioDesde={dominio.desde}
+      dominioHasta={dominio.hasta}
       {rango}
       onRango={elegirRango}
-      cargando={cargandoHistorial}
+      cargando={cargandoHistorial && rango !== 1}
       errorRango={errorHistorial}
-      puedeAcercar={rangoAcercar !== null}
-      puedeAlejar={rangoAlejar !== null}
-      onZoom={zoomRueda}
       {etiquetaFecha}
     />
 
