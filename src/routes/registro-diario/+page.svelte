@@ -309,17 +309,40 @@
   // día del mes en pantalla). No se estira hacia un pasado sin pesos: con 3 meses
   // de datos, "1 año" no debe ser 75% vacío, así que arranca en el mes del primer
   // peso.
-  const ventana = $derived.by(() => {
+  function ventanaDe(r: number): { desde: string; hasta: string } {
     const pesos = historial;
-    if (!zoomActivo || pesos === null) return { desde, hasta };
+    if (r === 1 || pesos === null) return { desde, hasta };
     const primero = pesos.length > 0 && pesos[0].fecha <= hasta ? pesos[0].fecha : null;
     if (primero === null) return { desde, hasta };
     const [py, pm] = primero.split('-').map(Number);
     const mesPrimero = py * 12 + (pm - 1);
-    const mesPedido = rango === 0 ? mesPrimero : anio * 12 + mes - (rango - 1);
+    const mesPedido = r === 0 ? mesPrimero : anio * 12 + mes - (r - 1);
     const ini = Math.max(mesPedido, mesPrimero);
     return { desde: `${Math.floor(ini / 12)}-${pad((ini % 12) + 1)}-01`, hasta };
-  });
+  }
+  const ventana = $derived(ventanaDe(zoomActivo ? rango : 1));
+
+  // Rueda del mouse sobre la gráfica: sube o baja por los mismos rangos del
+  // selector (RANGOS va de más cerca a más lejos). Se salta los que se verían
+  // igual que lo que ya hay en pantalla -- con 4 meses de historial, "6 meses",
+  // "1 año" y "Todo" abarcan lo mismo, y la rueda no debe girar sin que nada
+  // cambie. null = no hay a dónde ir: la gráfica deja entonces que el scroll
+  // mueva la página. Mientras el historial no ha llegado no se sabe cuáles se
+  // repiten, así que se va al vecino de la lista.
+  function rangoVecino(dir: -1 | 1): number | null {
+    const visible = ventana.desde;
+    for (let k = RANGOS.indexOf(rango) + dir; k >= 0 && k < RANGOS.length; k += dir) {
+      if (historial === null || ventanaDe(RANGOS[k]).desde !== visible) return RANGOS[k];
+    }
+    return null;
+  }
+  const rangoAcercar = $derived(rangoVecino(-1));
+  const rangoAlejar = $derived(rangoVecino(1));
+
+  function zoomRueda(dir: -1 | 1) {
+    const r = dir < 0 ? rangoAcercar : rangoAlejar;
+    if (r !== null) elegirRango(r);
+  }
 
   const puntosGrafica = $derived.by(() => {
     const pesos = historial;
@@ -439,6 +462,9 @@
       onRango={elegirRango}
       cargando={cargandoHistorial}
       errorRango={errorHistorial}
+      puedeAcercar={rangoAcercar !== null}
+      puedeAlejar={rangoAlejar !== null}
+      onZoom={zoomRueda}
       {etiquetaFecha}
     />
 

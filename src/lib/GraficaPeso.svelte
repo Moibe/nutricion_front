@@ -22,6 +22,9 @@
   // pega al día medido más cercano y un tooltip da fecha, peso y cambio. Funciona
   // con mouse, con el dedo (arrastrar) y con teclado (flechas). La tabla de abajo
   // trae los mismos datos del mes, así que el tooltip nunca es la única vía.
+  // Además, la rueda del mouse sobre la gráfica acerca y aleja (ver `rueda`): es un
+  // atajo del selector de rango, que sigue siendo la vía que sirve con cualquier
+  // dispositivo.
   type Punto = {
     // YYYY-MM-DD
     fecha: string;
@@ -38,6 +41,9 @@
     onRango,
     cargando = false,
     errorRango = null,
+    puedeAcercar = false,
+    puedeAlejar = false,
+    onZoom,
     etiquetaFecha
   }: {
     puntos: Punto[];
@@ -51,6 +57,13 @@
     // había (atenuado) en vez de vaciar la tarjeta.
     cargando?: boolean;
     errorRango?: string | null;
+    // Rueda del mouse: ¿hay un zoom más cerca / más lejos al que ir? Lo decide quien
+    // usa la gráfica (que sabe cuántos meses de historial hay). Sin a dónde ir, la
+    // rueda no se intercepta y el scroll sigue moviendo la página.
+    puedeAcercar?: boolean;
+    puedeAlejar?: boolean;
+    // Un paso de zoom: -1 acerca (menos meses), 1 aleja (más meses).
+    onZoom?: (direccion: -1 | 1) => void;
     // "Sáb 24 oct 2026": la da quien usa la gráfica, para que se lea igual que la tabla.
     etiquetaFecha: (fecha: string) => string;
   } = $props();
@@ -265,6 +278,67 @@
     return `Peso ${periodo}: ${resumen.n} mediciones, de ${fmt(resumen.primero)} a ${fmt(resumen.ultimo)} kg; mínimo ${fmt(Math.min(...pesos))}, máximo ${fmt(Math.max(...pesos))}.`;
   });
 
+  // --- Rueda del mouse: acercar / alejar -----------------------------------
+  // Rueda hacia arriba acerca (menos meses) y hacia abajo aleja (más), como en un
+  // mapa; mueve el mismo zoom del selector, un nivel por paso.
+  //  - Un paso por "muesca" de la rueda (~100px de recorrido). Un touchpad manda
+  //    muchos eventos chicos por gesto: se acumulan hasta el umbral.
+  //  - Tras cada paso hay una pausa en la que se ignora lo que siga llegando (la
+  //    inercia, o dos muescas seguidas), para no pasar de 1 mes a todo de un golpe.
+  //  - Donde ya no hay más zoom (1 mes al acercar, el tope al alejar) la rueda NO
+  //    se intercepta y el scroll mueve la página -- salvo en el mismo gesto que
+  //    acaba de hacer zoom: ahí se traga lo que quede, o una sola vuelta de rueda
+  //    haría zoom y además brincaría la página. Un gesto nuevo (tras una pausa) ya pasa.
+  //  - Ctrl/⌘ + rueda (y el pellizco del touchpad, que llega así) es el zoom de la
+  //    PÁGINA: no se toca.
+  //  - Un evento que NO es cancelable es parte de un scroll que el navegador ya
+  //    empezó (p. ej. el pase de un gesto en el tope, hace menos de medio segundo):
+  //    no hay forma de frenarlo, así que no se le suma un zoom -- sería zoom y
+  //    scroll de la página a la vez.
+  const RUEDA_UMBRAL = 60;
+  const RUEDA_ESPERA_MS = 260;
+  const RUEDA_PAUSA_MS = 250;
+  let ruedaAcum = 0;
+  let ruedaUltimoPaso = -Infinity;
+  let ruedaUltimoEvento = -Infinity;
+  let ruedaEnGesto = false;
+
+  // Acción (y no `onwheel`): el listener tiene que ser NO pasivo para poder frenar
+  // el scroll de la página con preventDefault.
+  function rueda(nodo: HTMLElement) {
+    function alRueda(e: WheelEvent) {
+      if (e.ctrlKey || e.metaKey || !e.cancelable) return;
+      // A píxeles: Firefox con mouse manda líneas (deltaMode 1) en vez de píxeles.
+      const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+      if (dy === 0) return; // scroll horizontal puro
+      const direccion: -1 | 1 = dy < 0 ? -1 : 1;
+
+      const ahora = performance.now();
+      if (ahora - ruedaUltimoEvento > RUEDA_PAUSA_MS) {
+        // Pasó una pausa: es otro gesto.
+        ruedaAcum = 0;
+        ruedaEnGesto = false;
+      }
+      ruedaUltimoEvento = ahora;
+
+      const disponible = direccion < 0 ? puedeAcercar : puedeAlejar;
+      if (!disponible && !ruedaEnGesto) return; // sin a dónde ir: el scroll sigue de largo
+      e.preventDefault();
+      if (!disponible) return; // gesto que ya hizo zoom y llegó al tope: se traga el resto
+      if (ahora - ruedaUltimoPaso < RUEDA_ESPERA_MS) return;
+
+      if (Math.sign(ruedaAcum) !== direccion) ruedaAcum = 0; // cambió de sentido
+      ruedaAcum += dy;
+      if (Math.abs(ruedaAcum) < RUEDA_UMBRAL) return;
+      ruedaAcum = 0;
+      ruedaUltimoPaso = ahora;
+      ruedaEnGesto = true;
+      onZoom?.(direccion);
+    }
+    nodo.addEventListener('wheel', alRueda, { passive: false });
+    return { destroy: () => nodo.removeEventListener('wheel', alRueda) };
+  }
+
   // --- Hover / toque / teclado -------------------------------------------
   let activo = $state<number | null>(null);
   const puntoActivo = $derived(activo !== null ? (pts[activo] ?? null) : null);
@@ -370,8 +444,15 @@
     {/if}
   </header>
 
-  <!-- El zoom: solo mueve la gráfica (la tabla y el mes en pantalla no cambian). -->
-  <div class="rangos" role="group" aria-label="Meses que abarca la gráfica">
+  <!-- El zoom: solo mueve la gráfica (la tabla y el mes en pantalla no cambian). El
+       title avisa del atajo de la rueda sin tapar el tooltip de la gráfica (esta
+       fila no es parte del área que escucha la rueda). -->
+  <div
+    class="rangos"
+    role="group"
+    aria-label="Meses que abarca la gráfica"
+    title="También puedes acercar y alejar con la rueda del mouse sobre la gráfica"
+  >
     {#each OPCIONES as o (o.valor)}
       <button
         type="button"
@@ -386,7 +467,7 @@
     <p class="aviso-rango" role="status">⚠️ {errorRango}</p>
   {/if}
 
-  <div class="area" class:atenuada={cargando} aria-busy={cargando}>
+  <div class="area" class:atenuada={cargando} aria-busy={cargando} use:rueda>
     {#if pts.length === 0}
       <p class="vacia">{sinPesos}</p>
     {:else}
